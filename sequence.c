@@ -7,6 +7,7 @@ void initSequence (Sequence* sequence) {
     sequence->allocated = 0;
     sequence->inventory = 0;
     sequence->code = NULL;
+    sequence->line = NULL;
     initValues(&sequence->constants);
 
     return;
@@ -15,6 +16,7 @@ void initSequence (Sequence* sequence) {
 // free struct be removing pointer and reinitializing values
 void freeSequence (Sequence* sequence) {
     FREE_ARRAY(uint8_t, sequence->code, sequence->allocated);
+    FREE_ARRAY(int, sequence->line, sequence->allocated);
     freeValues(&sequence->constants);
     initSequence(sequence);
 
@@ -22,14 +24,16 @@ void freeSequence (Sequence* sequence) {
 }
 
 // append new code to end of block if the allocated sequence size isn't fulfilled
-void writeSequence (Sequence* sequence, uint8_t code) {
+void writeSequence (Sequence* sequence, uint8_t code, int line) {
     if(sequence->allocated < sequence->inventory + 1) {
         int current_limit = sequence->allocated;
         sequence->allocated = EXPAND_LIMITS(current_limit);
         sequence->code = EXPAND_ARRAY(uint8_t, sequence->code, current_limit, sequence->allocated);
+        sequence->line = EXPAND_ARRAY(int, sequence->line, current_limit, sequence->allocated);
     }
 
     sequence->code[sequence->inventory] = code;
+    sequence->line[sequence->inventory] = line;
     sequence->inventory++;
 
     return;

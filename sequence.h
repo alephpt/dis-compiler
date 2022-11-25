@@ -15,12 +15,13 @@ typedef struct {
     int allocated;
     int inventory;
     uint8_t* code;
+    int* line;
     Values constants;
 } Sequence;
 
 void initSequence (Sequence* sequence);
 void freeSequence (Sequence* sequence);
-void writeSequence (Sequence* sequence, uint8_t code);
+void writeSequence (Sequence* sequence, uint8_t code, int line);
 int addValue (Sequence* sequence, Value value);
 
 #endif
