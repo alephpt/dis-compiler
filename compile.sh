@@ -1,1 +1,1 @@
-gcc main.c -o dis memory.c sequence.c value.c debug.c 
+gcc main.c -o dis memory.c virt.c sequence.c value.c debug.c 

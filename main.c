@@ -1,8 +1,10 @@
 #include "header.h"
+#include "virt.h"
 #include "sequence.h"
 #include "debug.h"
 
 int main (int argc, const char* argv[]) {
+    initVM();
     Sequence seq;
     
     initSequence(&seq);
@@ -23,6 +25,9 @@ int main (int argc, const char* argv[]) {
 
 
     stripSequence(&seq, "Testing Sequence");
+    interpret(&seq);
+
+    freeVM();
     freeSequence(&seq);
     
     return 0;
