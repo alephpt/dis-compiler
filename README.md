@@ -28,6 +28,7 @@ Comparitors should be able to support more complex logic in a simpler way:
 ```
 def - define or declare a variable
 op  - define an operation
+log - prints to stdout
 ```
 
 **Basic Functions**
