@@ -9,23 +9,33 @@ int main (int argc, const char* argv[]) {
     
     initSequence(&seq);
 
-    int value = addValue(&seq, 9.979);
+    int value = addValue(&seq, 0.02);
     writeSequence(&seq, OP_VALUE, 1);
     writeSequence(&seq, value, 1);
 
     value = addValue(&seq, 332.332);
-    writeSequence(&seq, OP_VALUE, 2);
-    writeSequence(&seq, value, 2);
+    writeSequence(&seq, OP_VALUE, 1);
+    writeSequence(&seq, value, 1);
 
-    writeSequence(&seq, SIG_RETURN, 3);
+    writeSequence(&seq, SIG_NEG, 1);
 
-    value = addValue(&seq, 0.002);
+    writeSequence(&seq, SIG_MULT, 2);
+
+    value = addValue(&seq, 0.02002);
     writeSequence(&seq, OP_VALUE, 3);
     writeSequence(&seq, value, 3);
+    
+    writeSequence(&seq, SIG_DIV, 3);
 
 
-    stripSequence(&seq, "Testing Sequence");
+    writeSequence(&seq, SIG_RETURN, 1);
+
+
+//    stripSequence(&seq, "Debug Main");
+
     interpret(&seq);
+
+
 
     freeVM();
     freeSequence(&seq);

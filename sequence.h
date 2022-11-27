@@ -7,6 +7,7 @@
 // instructions
 typedef enum {
     OP_VALUE,
+    SIG_NEG,
     SIG_ADD,
     SIG_SUB,
     SIG_MULT,
