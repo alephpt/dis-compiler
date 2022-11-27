@@ -1,0 +1,18 @@
+obj disStruct 
+|
+    op asFunc <- len : 
+    |
+        as, def i <- 0.(++) < len:
+            log -> len. 
+        ^.
+    ~
+~
+
+op main<-:
+|
+    def a <- disStruct->.
+
+    a::asFunc->10.
+    
+    ^ 0.
+~

@@ -22,7 +22,7 @@ typedef enum {
 void initVM();
 void freeVM();
 
-Interpretation interpret(Sequence* sequence);
+Interpretation interpret(const char* source);
 void push(Value value);
 Value pop();
 

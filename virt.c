@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "header.h"
 #include "virt.h"
+#include "compiler.h"
 #include "debug.h"
 
 Virtualizer vm;
@@ -109,9 +110,10 @@ static Interpretation run() {
 }
 
 Interpretation interpret (Sequence* sequence) {
-    vm.sequence = sequence;
-    vm.instruction = vm.sequence->code;
-    
+    compile(source);
+    return INTERPRETED;
+
+    /*
     #ifdef DEBUG_TRACE_EXECUTION
     printf("        ./~     Debug Stack Trace   ~\\.\n");
     printf(" Byte  Line   Code              Index   Value \n");
@@ -119,4 +121,5 @@ Interpretation interpret (Sequence* sequence) {
     #endif
 
     return run();
+    */
 }
