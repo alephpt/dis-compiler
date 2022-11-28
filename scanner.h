@@ -39,8 +39,8 @@ typedef enum {
     T_OR_OP,            // ||                       - logical or
     T_GREATER,          // >                        - logical comparison
     T_LESSER,           // <                        - logical comparison
-    T_GTOE,         // >=                       - logical comparison
-    T_LTOE,          // <=                       - logical comparison
+    T_GTOE,             // >=                       - logical comparison
+    T_LTOE,             // <=                       - logical comparison
     T_EQEQ,             // ==                       - logical equality
     T_INEQ,             // !=                       - logical inequality
     T_NOT,              // !                        - negation
