@@ -18,13 +18,13 @@ void repl() {
         }
 
         printf("<~ %s", line);
-        //interpret(line);
+        interpret(line);
     }
 
     return;
 }
 
-char* readFile (const char* path) {
+static char* read_f (const char* path) {
     FILE* f = fopen(path, "rb");
     if (f == NULL) { fprintf(stderr, "Error opening \"%s\".", path); exit(74); }
     fseek(f, 0L, SEEK_END);
@@ -42,7 +42,7 @@ char* readFile (const char* path) {
 }
 
 void runFile (const char* file) {
-    char* source = readFile(file);
+    char* source = read_f(file);
     Interpretation res = interpret(source);
     free(source);
     
