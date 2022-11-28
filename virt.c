@@ -109,7 +109,7 @@ static Interpretation run() {
     #undef BINARY_OP
 }
 
-Interpretation interpret (Sequence* sequence) {
+Interpretation interpret (const char* source) {
     compile(source);
     return INTERPRETED;
 
