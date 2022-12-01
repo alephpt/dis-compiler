@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include "terminal.h"
-#include "virt.h"
 
 int main (int argc, const char* argv[]) {
     initVM();

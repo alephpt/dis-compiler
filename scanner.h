@@ -37,10 +37,12 @@ typedef enum {
     // Logical Operators
     T_AND_OP,           // &&                       - logical and
     T_OR_OP,            // ||                       - logical or
-    T_GREATER,          // >                        - logical comparison
-    T_LESSER,           // <                        - logical comparison
-    T_GTOE,             // >=                       - logical comparison
-    T_LTOE,             // <=                       - logical comparison
+    T_GREATER,          // >                        - logical comparison or vector
+    T_LESSER,           // <                        - logical comparison or vector
+    T_GTOE,             // >=                       - logical comparison ( right side fixed )
+    T_EOGT,             // =>                       - logical comparison ( left side fixed )
+    T_LTOE,             // <=                       - logical comparison ( right side fixed )
+    T_EOLT,             // =<                       - logical comparison ( left side fixed )
     T_EQEQ,             // ==                       - logical equality
     T_INEQ,             // !=                       - logical inequality
     T_NOT,              // !                        - negation

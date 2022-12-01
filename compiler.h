@@ -1,6 +1,8 @@
 #ifndef dis_compiler_h
 #define dis_compiler_h
 
-void compile(const char* source);
+#include "virtualization.h"
+
+void compile(const char* source, Sequence* sequence);
 
 #endif

@@ -2,6 +2,7 @@
 #include "header.h"
 #include "virt.h"
 #include "compiler.h"
+#include "sequence.h"
 #include "debug.h"
 
 Virtualizer vm;
@@ -29,7 +30,7 @@ void freeVM () {
     return;
 }
 
-static Interpretation run() {
+static Interpretation elucidate() {
     #define READ_INSTRUCTION() (*vm.instruction++)
     #define READ_VALUE() (vm.sequence->constants.values[READ_INSTRUCTION()])
     #define BINARY_OP(op) { do { double b = pop(); double a = pop(); push(a op b); } while (false); }
@@ -110,16 +111,21 @@ static Interpretation run() {
 }
 
 Interpretation interpret (const char* source) {
-    compile(source);
-    return INTERPRETED;
+    Sequence sequence;
+    initSequence(&sequence);
 
-    /*
-    #ifdef DEBUG_TRACE_EXECUTION
-    printf("        ./~     Debug Stack Trace   ~\\.\n");
-    printf(" Byte  Line   Code              Index   Value \n");
-    printf("└────┴──────┴─────────────────┴───────┴───────┘\n");
-    #endif
+    if (!compile(source, &chunk))
+    {
+        freeSequence(&sequence);
+        return COMPILE_ERROR;
+    }
 
-    return run();
-    */
+    vm.sequence = &sequence;
+    vm.instruction = vm.sequence->code;
+
+    Interpretation connotation = elucidate();
+
+    freeSequence(&sequence);
+
+    return connotation;
 }

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "header.h"
-#include "virt.h"
+#include "virtualization.h"
 #include "debug.h"
 #include "terminal.h"
 
