@@ -3,6 +3,6 @@
 
 #include "virtualization.h"
 
-void compile(const char* source, Sequence* sequence);
+bool compile(const char* source, Sequence* sequence);
 
 #endif

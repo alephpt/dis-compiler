@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "virtualization.h"
 #include "terminal.h"
 
 int main (int argc, const char* argv[]) {

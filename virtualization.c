@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include "header.h"
-#include "virt.h"
+#include "virtualization.h"
 #include "compiler.h"
 #include "sequence.h"
 #include "debug.h"
@@ -114,7 +114,7 @@ Interpretation interpret (const char* source) {
     Sequence sequence;
     initSequence(&sequence);
 
-    if (!compile(source, &chunk))
+    if (!compile(source, &sequence))
     {
         freeSequence(&sequence);
         return COMPILE_ERROR;
