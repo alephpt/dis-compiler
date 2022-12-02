@@ -4,6 +4,8 @@
 #include "compiler.h"
 #include "scanner.h"
 
+typedef void (*PType)();
+
 typedef struct {
     Token prev;
     Token current;
@@ -11,12 +13,121 @@ typedef struct {
     bool panic;
 } Parser;
 
+typedef enum {
+    P_NONE,
+    P_ASSIGN,
+    P_OR,
+    P_AND,
+    P_EQUALS,
+    P_COMPARE,
+    P_TERM,
+    P_FACTOR,
+    P_UNARY,
+    P_CALL,
+    P_PRIMARY
+} Precedence;
+
+typedef struct {
+    PType prefix;
+    PType infix;
+    Precedence precedence;
+} ParseRule;
+
 Parser parser;
 Sequence* compilingSequence;
+static void expression();
+static ParseRule* getRule(TType type);
+static void precedence(Precedence precede);
+static void numeral();
+static void grouping();
+static void unary();
+static void binary();
 
-static Sequence* currentSequence() {
-    return compilingSequence;
-}
+ParseRule rules[] = {
+    [T_L_PAR]            =             {grouping,      NULL,       P_NONE},
+    [T_R_PAR]            =             {NULL,          NULL,       P_NONE},
+    [T_L_BRACK]          =             {NULL,          NULL,       P_NONE},
+    [T_R_BRACK]          =             {NULL,          NULL,       P_NONE},
+    [T_L_BRACE]          =             {NULL,          NULL,       P_NONE},
+    [T_R_BRACE]          =             {NULL,          NULL,       P_NONE},
+    [T_COMMA]            =             {NULL,          NULL,       P_NONE},
+    [T_REF]              =             {NULL,          NULL,       P_NONE},
+    [T_DEREF]            =             {NULL,          NULL,       P_NONE},
+    [T_HASH]             =             {NULL,          NULL,       P_NONE},
+    [T_BODY_START]       =             {NULL,          NULL,       P_NONE},
+    [T_UNDER]            =             {NULL,          NULL,       P_NONE},
+    [T_LINE_END]         =             {NULL,          NULL,       P_NONE},
+    [T_BODY_END]         =             {NULL,          NULL,       P_NONE},
+    [T_RETURN]           =             {NULL,          NULL,       P_NONE},
+    [T_LOG]              =             {NULL,          NULL,       P_NONE},
+    [T_PLUS]             =             {NULL,          binary,     P_TERM},
+    [T_MINUS]            =             {unary,         binary,     P_TERM},
+    [T_STAR]             =             {NULL,          binary,     P_FACTOR},
+    [T_WHACK]            =             {NULL,          binary,     P_FACTOR},
+    [T_MOD]              =             {NULL,          NULL,       P_NONE},
+    [T_POWER]            =             {NULL,          NULL,       P_NONE},
+    [T_PLUSPLUS]         =             {NULL,          NULL,       P_NONE},
+    [T_MINUSMINUS]       =             {NULL,          NULL,       P_NONE},
+    [T_PLUS_EQ]          =             {NULL,          NULL,       P_NONE},
+    [T_MINUS_EQ]         =             {NULL,          NULL,       P_NONE},
+    [T_EQ_PLUS]          =             {NULL,          NULL,       P_NONE},
+    [T_EQ_MINUS]         =             {NULL,          NULL,       P_NONE},
+    [T_AND_OP]           =             {NULL,          NULL,       P_NONE},
+    [T_OR_OP]            =             {NULL,          NULL,       P_NONE},
+    [T_GREATER]          =             {NULL,          NULL,       P_NONE},
+    [T_LESSER]           =             {NULL,          NULL,       P_NONE},
+    [T_GTOE]             =             {NULL,          NULL,       P_NONE},
+    [T_EOGT]             =             {NULL,          NULL,       P_NONE},
+    [T_LTOE]             =             {NULL,          NULL,       P_NONE},
+    [T_EOLT]             =             {NULL,          NULL,       P_NONE},
+    [T_EQEQ]             =             {NULL,          NULL,       P_NONE},
+    [T_INEQ]             =             {NULL,          NULL,       P_NONE},
+    [T_NOT]              =             {NULL,          NULL,       P_NONE},
+    [T_L_ASSIGN]         =             {NULL,          NULL,       P_NONE},
+    [T_R_ASSIGN]         =             {NULL,          NULL,       P_NONE},
+    [T_L_OUT]            =             {NULL,          NULL,       P_NONE},
+    [T_R_OUT]            =             {NULL,          NULL,       P_NONE},
+    [T_COMMENT]          =             {NULL,          NULL,       P_NONE},
+    [T_DOLLAR]           =             {NULL,          NULL,       P_NONE},
+    [T_BWHACK]           =             {NULL,          NULL,       P_NONE},
+    [T_BITWISE]          =             {NULL,          NULL,       P_NONE},
+    [T_QUEST]            =             {NULL,          NULL,       P_NONE},
+    [T_INDEX]            =             {NULL,          NULL,       P_NONE},
+    [T_DEFINE]           =             {NULL,          NULL,       P_NONE},
+    [T_INCLUDE]          =             {NULL,          NULL,       P_NONE},
+    [T_PILOT]            =             {NULL,          NULL,       P_NONE},
+    [T_PARENT]           =             {NULL,          NULL,       P_NONE},
+    [T_GLOBAL]           =             {NULL,          NULL,       P_NONE},
+    [T_SELF]             =             {NULL,          NULL,       P_NONE},
+    [T_THIS]             =             {NULL,          NULL,       P_NONE},
+    [T_PUBLIC]           =             {NULL,          NULL,       P_NONE},
+    [T_PRIVATE]          =             {NULL,          NULL,       P_NONE},
+    [T_OP]               =             {NULL,          NULL,       P_NONE},
+    [T_OBJ]              =             {NULL,          NULL,       P_NONE},
+    [T_ENUM]             =             {NULL,          NULL,       P_NONE},
+    [T_FORM]             =             {NULL,          NULL,       P_NONE},
+    [T_PAIR]             =             {NULL,          NULL,       P_NONE},
+    [T_STRING]           =             {NULL,          NULL,       P_NONE},
+    [T_BINARY]           =             {numeral,       NULL,       P_NONE},
+    [T_DECIMAL]          =             {numeral,       NULL,       P_NONE},
+    [T_OCTAL]            =             {numeral,       NULL,       P_NONE},
+    [T_HEXADECIMAL]      =             {numeral,       NULL,       P_NONE},
+    [T_ID]               =             {NULL,          NULL,       P_NONE},
+    [T_AS]               =             {NULL,          NULL,       P_NONE},
+    [T_WHILE]            =             {NULL,          NULL,       P_NONE},
+    [T_WHEN]             =             {NULL,          NULL,       P_NONE},
+    [T_OR]               =             {NULL,          NULL,       P_NONE},
+    [T_ELSE]             =             {NULL,          NULL,       P_NONE},
+    [T_NONE]             =             {NULL,          NULL,       P_NONE},
+    [T_TRUE]             =             {NULL,          NULL,       P_NONE},
+    [T_FALSE]            =             {NULL,          NULL,       P_NONE},
+    [T_EOF]              =             {NULL,          NULL,       P_NONE},
+    [T_ERR]              =             {NULL,          NULL,       P_NONE},
+    [T_SEMIC]            =             {NULL,          NULL,       P_NONE},
+    [T_EQ]                =            {NULL,          NULL,       P_NONE}
+};
+
+static Sequence* currentSequence() { return compilingSequence; }
 
 static void err(Token* token, const char* message) {
     if (parser.panic) { return; }
@@ -38,17 +149,23 @@ static void err(Token* token, const char* message) {
 
 static void currentErr(const char* message) { err(&parser.current, message); }
 static void prevErr(const char* message) { err(&parser.prev, message); }
+static void byteEmitter(uint8_t byte) { writeSequence(currentSequence(), byte, parser.prev.line); }
+static void emitBytes(uint8_t byte1, uint8_t byte2) { byteEmitter(byte1); byteEmitter(byte2); }
 
-static void byteEmitter(uint8_t byte) {
-    writeSequence(currentSequence(), byte, parser.prev.line);
+static uint8_t genValue(Value val) {
+    int value = addValue(currentSequence(), val);
+
+    if (value > UINT8_MAX) {
+        prevErr("Too many values in one chunk.");
+        return 0;
+    }
+
+    return (uint8_t)value;
 }
 
-static void emitBytes(uint8_t byte1, uint8_t byte2) {
-    byteEmitter(byte1);
-    byteEmitter(byte2);
-}
+static void valueEmitter(Value value) { emitBytes(OP_VALUE, genValue(value)); }
 
-static void perspective() {
+static void perception() {
     parser.prev = parser.current;
 
     for (;;) {
@@ -60,26 +177,77 @@ static void perspective() {
     }
 }
 
-static void expression() {
+static void precedence(Precedence precede) {
+    perception();
 
+    PType prefix = getRule(parser.prev.type)->prefix;
+
+    if (prefix == NULL) {
+        prevErr("Expression expected.");
+        return;
+    }
+
+    prefix();
+
+    while (precede <= getRule(parser.current.type)->precedence) {
+        perception();
+        PType infix = getRule(parser.prev.type)->infix;
+        infix();
+    }
+}
+
+static ParseRule* getRule(TType type) { return &rules[type]; }
+
+static void expression() {
+    precedence(P_ASSIGN);
 }
 
 static void consumption(TType t, const char* message) {
     if (parser.current.type = t) {
-        perspective();
+        perception();
         return;
     }
 
     currentErr(message);
 }
 
-static void returnEmitter() {
-    byteEmitter(SIG_RETURN);
+static void numeral() {
+    double value = strtod(parser.prev.start, NULL);
+    valueEmitter(value);
 }
 
-static void closer() {
-    returnEmitter();
+static void grouping () {
+    expression();
+    consumption(T_R_PAR, "Expected ')' at end of expression.");
 }
+
+static void unary () {
+    TType opType = parser.prev.type;
+
+    precedence(P_UNARY);
+
+    switch (opType) {
+        case T_MINUS: byteEmitter(SIG_SUB); break;
+        default: return;
+    }
+}
+
+static void binary () {
+    TType opType = parser.prev.type;
+    ParseRule* rule = getRule(opType);
+    precedence((Precedence)(rule->precedence + 1));
+
+    switch (opType) {
+        case T_PLUS:    byteEmitter(SIG_ADD); break;
+        case T_MINUS:   byteEmitter(SIG_SUB); break;
+        case T_STAR:    byteEmitter(SIG_MULT); break;
+        case T_WHACK:   byteEmitter(SIG_DIV); break;
+        default: return;
+    }
+}
+
+static void returnEmitter() { byteEmitter(SIG_RETURN); }
+static void closer() { returnEmitter(); }
 
 bool compile(const char* source, Sequence* sequence) {
     int line = -1;
@@ -90,7 +258,7 @@ bool compile(const char* source, Sequence* sequence) {
     parser.erroneous = false;
     parser.panic = false;
 
-    perspective();
+    perception();
     expression();
     consumption(T_EOF, "Expected End of Expression.");
     closer();

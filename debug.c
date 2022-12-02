@@ -22,7 +22,7 @@ int stripCommand (Sequence* seq, int offset) {
 
     if (offset > 0) {
         if (seq->line[offset] != seq->line[offset - 1]) {
-            printf("%4d    ", seq->line[offset]);
+            printf("%4d   ───  ", seq->line[offset]);
         } else
         #ifdef DEBUG_TRACE_EXECUTION
         if (seq->code[offset] == OP_VALUE ||
@@ -33,13 +33,13 @@ int stripCommand (Sequence* seq, int offset) {
             seq->code[offset] == SIG_SUB
             ) {
             printf("\033[90m");
-            printf("   ╠──  ");
+            printf("   ╠──────  ");
             printf("\033[0m");
         } else
         #endif
         if (seq->line[offset] != seq->line[offset + 2]) {
             printf("\033[90m");
-            printf("   ╚──  ");
+            printf("   ╚──────  ");
             printf("\033[0m");
         }
         else {
@@ -49,7 +49,7 @@ int stripCommand (Sequence* seq, int offset) {
 
         }
     } else {
-        printf("%4d    ", seq->line[offset]);
+        printf("%4d   ───  ", seq->line[offset]);
     }
 
     uint8_t instruction = seq->code[offset];
