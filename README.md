@@ -31,19 +31,28 @@ Comparitors should be able to support more complex logic in a simpler way:
 def - define or declare a variable
 op  - define an operation
 log - prints to stdout
+$   - body open, or string interpolation
+^   - body close, and return
+.   - statement/declaration end
 ```
 
 **Basic Functions**
 ```
 op adder <- a, b : 
-|
-    ^ (a + b).
-~
+$
+    return (a + b).
+^
 
-op main <- : |
-    log -> adder-> a, b.
-~
+op main <- : $
+    log -> adder-> 1, 3.
+^
 ```
+could also be written as 
+```
+op adder<-a,b:$^(a + b)
+op main<-:$ log->adder->1,3. ^
+```
+
 
 **As Loop** (For Loop)
 ```
