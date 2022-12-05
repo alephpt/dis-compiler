@@ -18,7 +18,9 @@ Comparitors should be able to support more complex logic in a simpler way:
     - `A, C < B` signifies A and C are less than B
     
     - `A == B != C` signifies A is equal to B but not C
-    
+      
+    - `A, B != C` signifies A and B are not equal to C
+
     - `A == B == C` signifies A, B and C are all equal
 
 
