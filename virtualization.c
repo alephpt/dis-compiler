@@ -90,17 +90,17 @@ static Interpretation elucidate() {
             case OP_NONE: push(NONE_VALUE); break;
             case OP_TRUE: push(BOOLEAN_VALUE(true)); break;
             case OP_FALSE: push(BOOLEAN_VALUE(false)); break;
-            case OP_ISEQUAL: {
+            case OP_EQUAL_TO: {
                 Value b = pop();
                 Value a = pop();
                 push(BOOLEAN_VALUE(equalValues(a, b)));
                 break;
             }
-            case OP_ISGREATER: {
+            case OP_GREATER_THAN: {
                 BINARY_OP(BOOLEAN_VALUE, >);
                 break;
             }
-            case OP_ISLESSER: {
+            case OP_LESS_THAN: {
                 BINARY_OP(BOOLEAN_VALUE, <);
                 break;
             }

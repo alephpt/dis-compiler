@@ -3,6 +3,9 @@
 
 #include "header.h"
 
+#define ALLOCATE(type, count) \ 
+    (type*)reallocate(NULL, 0, sizeof(type) * (count))
+
 #define EXPAND_LIMITS(capacity) \
     ((capacity) < 8 ? 8 : (capacity * 2))
 

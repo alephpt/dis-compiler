@@ -63,12 +63,12 @@ int stripCommand (Sequence* seq, int offset) {
             return instruct("OP_TRUE", offset);
         case OP_FALSE:
             return instruct("OP_FALSE", offset);
-        case OP_ISEQUAL:
-            return instruct("OP_ISEQUAL", offset);
-        case OP_ISGREATER:
-            return instruct("OP_ISGREATER", offset);
-        case OP_ISLESSER:
-            return instruct("OP_ISLESSER", offset);
+        case OP_EQUAL_TO:
+            return instruct("OP_EQUAL_TO", offset);
+        case OP_GREATER_THAN:
+            return instruct("OP_GREATER_THAN", offset);
+        case OP_LESS_THAN:
+            return instruct("OP_LESS_THAN", offset);
         case SIG_ADD:
             return instruct("SIG_ADD", offset);
         case SIG_SUB:

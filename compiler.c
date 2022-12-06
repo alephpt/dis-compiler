@@ -3,6 +3,7 @@
 #include "header.h"
 #include "compiler.h"
 #include "scanner.h"
+#include "object.h"
 
 typedef void (*PType)();
 
@@ -39,6 +40,7 @@ static void expression();
 static ParseRule* getRule(TType type);
 static void precedence(Precedence precede);
 static void numeral();
+static void string();
 static void grouping();
 static void unary();
 static void binary();
@@ -108,7 +110,7 @@ ParseRule rules[] = {
     [T_ENUM]             =             {NULL,          NULL,       P_NONE},
     [T_FORM]             =             {NULL,          NULL,       P_NONE},
     [T_PAIR]             =             {NULL,          NULL,       P_NONE},
-    [T_STRING]           =             {NULL,          NULL,       P_NONE},
+    [T_STRING]           =             {string,        NULL,       P_NONE},
     [T_BINARY]           =             {numeral,       NULL,       P_NONE},
     [T_DECIMAL]          =             {numeral,       NULL,       P_NONE},
     [T_OCTAL]            =             {numeral,       NULL,       P_NONE},
@@ -201,6 +203,7 @@ static ParseRule* getRule(TType type) { return &rules[type]; }
 
 static void expression() {
     precedence(P_ASSIGN);
+    return;
 }
 
 static void consumption (TType t, const char* message) {
@@ -210,6 +213,7 @@ static void consumption (TType t, const char* message) {
     }
 
     currentErr(message);
+    return;
 }
 
 static void literal () {
@@ -219,11 +223,18 @@ static void literal () {
         case T_TRUE: byteEmitter(OP_TRUE); break;
         default: return;
     }
+    return;
 }
 
 static void numeral () {
     double value = strtod(parser.prev.start, NULL);
     valueEmitter(NUMERAL_VALUE(value));
+    return;
+}
+
+static void string () {
+    valueEmitter(OBJECT_VALUE(copyString(parser.prev.start + 1, parser.prev.length - 2)));
+    return;
 }
 
 static void grouping () {
@@ -241,6 +252,7 @@ static void unary () {
         case T_MINUS: byteEmitter(SIG_NEG); break;
         default: return;
     }
+    return;
 }
 
 static void binary () {
@@ -249,22 +261,23 @@ static void binary () {
     precedence((Precedence)(rule->precedence + 1));
 
     switch (opType) {
-        case T_INEQ:    emitBytes(OP_ISEQUAL, SIG_NOT); break;
-        case T_EQEQ:    byteEmitter(OP_ISEQUAL); break;
-        case T_GREATER: byteEmitter(OP_ISGREATER); break;
-        case T_GTOE:    emitBytes(OP_ISLESSER, SIG_NOT); break;
-        case T_LESSER:  byteEmitter(OP_ISLESSER); break;
-        case T_LTOE:    emitBytes(OP_ISGREATER, SIG_NOT); break;
+        case T_INEQ:    emitBytes(OP_EQUAL_TO, SIG_NOT); break;
+        case T_EQEQ:    byteEmitter(OP_EQUAL_TO); break;
+        case T_GREATER: byteEmitter(OP_GREATER_THAN); break;
+        case T_GTOE:    emitBytes(OP_LESS_THAN, SIG_NOT); break;
+        case T_LESSER:  byteEmitter(OP_LESS_THAN); break;
+        case T_LTOE:    emitBytes(OP_GREATER_THAN, SIG_NOT); break;
         case T_PLUS:    byteEmitter(SIG_ADD); break;
         case T_MINUS:   byteEmitter(SIG_SUB); break;
         case T_STAR:    byteEmitter(SIG_MULT); break;
         case T_WHACK:   byteEmitter(SIG_DIV); break;
         default: return;
     }
+    return;
 }
 
-static void returnEmitter() { byteEmitter(SIG_RETURN); }
-static void closer() { returnEmitter(); }
+static void returnEmitter() { byteEmitter(SIG_RETURN); return; }
+static void closer() { returnEmitter(); return; }
 
 bool compile(const char* source, Sequence* sequence) {
     int line = -1;
