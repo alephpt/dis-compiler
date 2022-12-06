@@ -13,11 +13,13 @@ typedef enum {
     T_REF,              // &                        - address
     T_DEREF,            // @                        - access variable at address
     T_HASH,             // #                        - used to define includes and preprocessor operations
-    T_BODY_START,       // :                        - opens body of function
+    T_PARAM_END,        // :                        - opens body of function
+    T_MEMBER,           // ::                       - access member of class
     T_UNDER,            // _                        - blank, default, any
-    T_LINE_END,         // .                        - ends statement
-    T_BODY_END,         // ~                        - closes body
-    T_RETURN,           // "^" || "return" 
+    T_PERIOD,           // .                        - ends statement
+    T_OPEN,             // $                        - start function body
+    T_CLOSE,            // ^                        - closes body
+    T_RETURN,           // "return" 
     T_LOG,              // "log"                    - print
 
     // Arithmetic Operators
@@ -40,9 +42,7 @@ typedef enum {
     T_GREATER,          // >                        - logical comparison or vector
     T_LESSER,           // <                        - logical comparison or vector
     T_GTOE,             // >=                       - logical comparison ( right side fixed )
-    T_EOGT,             // =>                       - logical comparison ( left side fixed )
     T_LTOE,             // <=                       - logical comparison ( right side fixed )
-    T_EOLT,             // =<                       - logical comparison ( left side fixed )
     T_EQEQ,             // ==                       - logical equality
     T_INEQ,             // !=                       - logical inequality
     T_NOT,              // !                        - negation

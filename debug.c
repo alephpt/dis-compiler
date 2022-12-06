@@ -22,7 +22,7 @@ int stripCommand (Sequence* seq, int offset) {
 
     if (offset > 0) {
         if (seq->line[offset] != seq->line[offset - 1]) {
-            printf("%4d   ───  ", seq->line[offset]);
+            printf("%4d \033[90m──\033[0m ", seq->line[offset]);
         } else
         #ifdef DEBUG_TRACE_EXECUTION
         if (seq->code[offset] == OP_VALUE ||
@@ -33,13 +33,13 @@ int stripCommand (Sequence* seq, int offset) {
             seq->code[offset] == SIG_SUB
             ) {
             printf("\033[90m");
-            printf("   ╠──────  ");
+            printf("   ╠─── ");
             printf("\033[0m");
         } else
         #endif
         if (seq->line[offset] != seq->line[offset + 2]) {
             printf("\033[90m");
-            printf("   ╚──────  ");
+            printf("   ╚─── ");
             printf("\033[0m");
         }
         else {
@@ -49,7 +49,7 @@ int stripCommand (Sequence* seq, int offset) {
 
         }
     } else {
-        printf("%4d   ───  ", seq->line[offset]);
+        printf("%4d \033[90m──\033[0m ", seq->line[offset]);
     }
 
     uint8_t instruction = seq->code[offset];
@@ -57,6 +57,18 @@ int stripCommand (Sequence* seq, int offset) {
     switch (instruction) {
         case OP_VALUE:
             return instructValue("OP_VALUE", seq, offset);
+        case OP_NONE:
+            return instruct("OP_NONE", offset);
+        case OP_TRUE:
+            return instruct("OP_TRUE", offset);
+        case OP_FALSE:
+            return instruct("OP_FALSE", offset);
+        case OP_ISEQUAL:
+            return instruct("OP_ISEQUAL", offset);
+        case OP_ISGREATER:
+            return instruct("OP_ISGREATER", offset);
+        case OP_ISLESSER:
+            return instruct("OP_ISLESSER", offset);
         case SIG_ADD:
             return instruct("SIG_ADD", offset);
         case SIG_SUB:
@@ -65,6 +77,8 @@ int stripCommand (Sequence* seq, int offset) {
             return instruct("SIG_MULT", offset);
         case SIG_DIV:
             return instruct("SIG_DIV", offset);
+        case SIG_NOT:
+            return instruct("SIG_NOT", offset);
         case SIG_NEG:
             return instruct("SIG_NEG", offset);
         case SIG_RETURN:

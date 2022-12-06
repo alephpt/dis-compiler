@@ -17,7 +17,7 @@ void repl() {
             break;
         }
 
-        printf("<~ %s", line);
+        printf("\n");// %s", line);
         interpret(line);
     }
 

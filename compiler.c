@@ -42,6 +42,7 @@ static void numeral();
 static void grouping();
 static void unary();
 static void binary();
+static void literal();
 
 ParseRule rules[] = {
     [T_L_PAR]            =             {grouping,      NULL,       P_NONE},
@@ -54,35 +55,33 @@ ParseRule rules[] = {
     [T_REF]              =             {NULL,          NULL,       P_NONE},
     [T_DEREF]            =             {NULL,          NULL,       P_NONE},
     [T_HASH]             =             {NULL,          NULL,       P_NONE},
-    [T_BODY_START]       =             {NULL,          NULL,       P_NONE},
+    [T_OPEN]             =             {NULL,          NULL,       P_NONE},
     [T_UNDER]            =             {NULL,          NULL,       P_NONE},
-    [T_LINE_END]         =             {NULL,          NULL,       P_NONE},
-    [T_BODY_END]         =             {NULL,          NULL,       P_NONE},
-    [T_RETURN]           =             {NULL,          NULL,       P_NONE},
+    [T_PERIOD]           =             {NULL,          NULL,       P_NONE},
+    [T_PARAM_END]        =             {NULL,          NULL,       P_NONE},
+    [T_CLOSE]            =             {NULL,          NULL,       P_NONE},
     [T_LOG]              =             {NULL,          NULL,       P_NONE},
-    [T_PLUS]             =             {NULL,          binary,     P_TERM},
     [T_MINUS]            =             {unary,         binary,     P_TERM},
-    [T_STAR]             =             {NULL,          binary,     P_FACTOR},
+    [T_PLUS]             =             {NULL,          binary,     P_TERM},
     [T_WHACK]            =             {NULL,          binary,     P_FACTOR},
+    [T_STAR]             =             {NULL,          binary,     P_FACTOR},
     [T_MOD]              =             {NULL,          NULL,       P_NONE},
     [T_POWER]            =             {NULL,          NULL,       P_NONE},
     [T_PLUSPLUS]         =             {NULL,          NULL,       P_NONE},
     [T_MINUSMINUS]       =             {NULL,          NULL,       P_NONE},
-    [T_PLUS_EQ]          =             {NULL,          NULL,       P_NONE},
-    [T_MINUS_EQ]         =             {NULL,          NULL,       P_NONE},
-    [T_EQ_PLUS]          =             {NULL,          NULL,       P_NONE},
-    [T_EQ_MINUS]         =             {NULL,          NULL,       P_NONE},
-    [T_AND_OP]           =             {NULL,          NULL,       P_NONE},
-    [T_OR_OP]            =             {NULL,          NULL,       P_NONE},
-    [T_GREATER]          =             {NULL,          NULL,       P_NONE},
-    [T_LESSER]           =             {NULL,          NULL,       P_NONE},
-    [T_GTOE]             =             {NULL,          NULL,       P_NONE},
-    [T_EOGT]             =             {NULL,          NULL,       P_NONE},
-    [T_LTOE]             =             {NULL,          NULL,       P_NONE},
-    [T_EOLT]             =             {NULL,          NULL,       P_NONE},
-    [T_EQEQ]             =             {NULL,          NULL,       P_NONE},
-    [T_INEQ]             =             {NULL,          NULL,       P_NONE},
-    [T_NOT]              =             {NULL,          NULL,       P_NONE},
+    [T_PLUS_EQ]          =             {NULL,          binary,       P_NONE},
+    [T_MINUS_EQ]         =             {NULL,          binary,       P_NONE},
+    [T_EQ_PLUS]          =             {NULL,          binary,       P_NONE},
+    [T_EQ_MINUS]         =             {NULL,          binary,       P_NONE},
+    [T_AND_OP]           =             {NULL,          binary,       P_NONE},
+    [T_OR_OP]            =             {NULL,          binary,       P_NONE},
+    [T_GREATER]          =             {NULL,          binary,     P_COMPARE},
+    [T_LESSER]           =             {NULL,          binary,     P_COMPARE},
+    [T_GTOE]             =             {NULL,          binary,     P_COMPARE},
+    [T_LTOE]             =             {NULL,          binary,     P_COMPARE},
+    [T_EQEQ]             =             {NULL,          binary,     P_EQUALS},
+    [T_INEQ]             =             {NULL,          binary,     P_EQUALS},
+    [T_NOT]              =             {unary,         NULL,       P_NONE},
     [T_L_ASSIGN]         =             {NULL,          NULL,       P_NONE},
     [T_R_ASSIGN]         =             {NULL,          NULL,       P_NONE},
     [T_L_OUT]            =             {NULL,          NULL,       P_NONE},
@@ -102,6 +101,8 @@ ParseRule rules[] = {
     [T_THIS]             =             {NULL,          NULL,       P_NONE},
     [T_PUBLIC]           =             {NULL,          NULL,       P_NONE},
     [T_PRIVATE]          =             {NULL,          NULL,       P_NONE},
+    [T_MEMBER]           =             {NULL,          NULL,       P_NONE},
+    [T_RETURN]           =             {NULL,          NULL,       P_NONE},
     [T_OP]               =             {NULL,          NULL,       P_NONE},
     [T_OBJ]              =             {NULL,          NULL,       P_NONE},
     [T_ENUM]             =             {NULL,          NULL,       P_NONE},
@@ -118,9 +119,9 @@ ParseRule rules[] = {
     [T_WHEN]             =             {NULL,          NULL,       P_NONE},
     [T_OR]               =             {NULL,          NULL,       P_NONE},
     [T_ELSE]             =             {NULL,          NULL,       P_NONE},
-    [T_NONE]             =             {NULL,          NULL,       P_NONE},
-    [T_TRUE]             =             {NULL,          NULL,       P_NONE},
-    [T_FALSE]            =             {NULL,          NULL,       P_NONE},
+    [T_NONE]             =             {literal,       NULL,       P_NONE},
+    [T_TRUE]             =             {literal,       NULL,       P_NONE},
+    [T_FALSE]            =             {literal,       NULL,       P_NONE},
     [T_EOF]              =             {NULL,          NULL,       P_NONE},
     [T_ERR]              =             {NULL,          NULL,       P_NONE},
     [T_SEMIC]            =             {NULL,          NULL,       P_NONE},
@@ -202,7 +203,7 @@ static void expression() {
     precedence(P_ASSIGN);
 }
 
-static void consumption(TType t, const char* message) {
+static void consumption (TType t, const char* message) {
     if (parser.current.type = t) {
         perception();
         return;
@@ -211,9 +212,18 @@ static void consumption(TType t, const char* message) {
     currentErr(message);
 }
 
-static void numeral() {
+static void literal () {
+    switch (parser.prev.type) {
+        case T_FALSE: byteEmitter(OP_FALSE); break;
+        case T_NONE: byteEmitter(OP_NONE); break;
+        case T_TRUE: byteEmitter(OP_TRUE); break;
+        default: return;
+    }
+}
+
+static void numeral () {
     double value = strtod(parser.prev.start, NULL);
-    valueEmitter(value);
+    valueEmitter(NUMERAL_VALUE(value));
 }
 
 static void grouping () {
@@ -227,7 +237,8 @@ static void unary () {
     precedence(P_UNARY);
 
     switch (opType) {
-        case T_MINUS: byteEmitter(SIG_SUB); break;
+        case T_NOT: byteEmitter(SIG_NOT); break;
+        case T_MINUS: byteEmitter(SIG_NEG); break;
         default: return;
     }
 }
@@ -238,6 +249,12 @@ static void binary () {
     precedence((Precedence)(rule->precedence + 1));
 
     switch (opType) {
+        case T_INEQ:    emitBytes(OP_ISEQUAL, SIG_NOT); break;
+        case T_EQEQ:    byteEmitter(OP_ISEQUAL); break;
+        case T_GREATER: byteEmitter(OP_ISGREATER); break;
+        case T_GTOE:    emitBytes(OP_ISLESSER, SIG_NOT); break;
+        case T_LESSER:  byteEmitter(OP_ISLESSER); break;
+        case T_LTOE:    emitBytes(OP_ISGREATER, SIG_NOT); break;
         case T_PLUS:    byteEmitter(SIG_ADD); break;
         case T_MINUS:   byteEmitter(SIG_SUB); break;
         case T_STAR:    byteEmitter(SIG_MULT); break;

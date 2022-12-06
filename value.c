@@ -17,6 +17,17 @@ void freeValues (Values* arr) {
     return;
 }
 
+// Todo, Compare 3 Values
+bool equalValues (Value a, Value b) {
+    if (a.type != b.type) { return false; }
+    switch (a.type) {
+        case V_BOOLEAN:     return AS_BOOLEAN(a) == AS_BOOLEAN(b);
+        case V_NONE:        return true;
+        case V_NUMERAL:     return AS_NUMERAL(a) == AS_NUMERAL(b);
+        default:            return false;
+    }
+}
+
 void writeValues (Values* arr, Value val) {
     if (arr->allocated < arr->inventory + 1) {
         int current_limit = arr->allocated;
@@ -31,5 +42,15 @@ void writeValues (Values* arr, Value val) {
 }
 
 void printValue (Value val) {
-    printf("%g", val);
+    switch(val.type) {
+        case V_BOOLEAN:
+            printf(AS_BOOLEAN(val) ? "true" : "false");
+            break;
+        case V_NONE:
+            printf("none");
+            break;
+        case V_NUMERAL:
+            printf("%g", AS_NUMERAL(val));
+            break;
+    }
 }

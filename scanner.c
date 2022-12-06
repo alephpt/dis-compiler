@@ -84,6 +84,7 @@ static TType iType() {
         case 'g': return checkWord(1, 5, "lobal", T_GLOBAL);
         case 'i': return checkWord(1, 6, "nclude", T_INCLUDE);
         case 'l': return checkWord(1, 2, "og", T_LOG);
+        case 'n': return checkWord(1, 3, "one", T_NONE);
         case 'N': return checkWord(1, 3, "ONE", T_NONE);
         case 'o': 
             if (scanner.current - scanner.start == 2) {
@@ -260,17 +261,17 @@ Token scanToken () {
         case ']': return genToken(T_R_BRACK);
         case '{': return genToken(T_L_BRACE);
         case '}': return genToken(T_L_BRACE);
-        case '.': return genToken(T_LINE_END);
+        case '.': return genToken(T_PERIOD);
         case ',': return genToken(T_COMMA);
-        case ':': return genToken(T_BODY_START);
-        case '~': return genToken(T_BODY_END);
+        case ':': return genToken( match(':') ? T_MEMBER : T_PARAM_END );
         case '+': return genToken(T_PLUS);
         case '-': return genToken(T_MINUS);
         case '*': return genToken(T_STAR);
         case '/': return genToken(T_WHACK);
         case '_': return genToken(T_UNDER);
         case '?': return genToken(T_QUEST);
-        case '^': return genToken(T_RETURN);
+        case '$': return genToken(T_OPEN);
+        case '^': return genToken(T_CLOSE);
         case '!': return genToken( match('=') ? T_INEQ : T_NOT );
         case '=': return genToken( match('=') ? T_EQEQ : T_EQ );
         case '<': return genToken( match('=') ? T_LTOE : T_LESSER );

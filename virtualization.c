@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdarg.h>
 #include "header.h"
 #include "virtualization.h"
 #include "compiler.h"
@@ -7,18 +8,23 @@
 
 Virtualizer vm;
 
-static void resetStack () {
-    vm.stackHead = vm.stack;
-}
+static void resetStack () { vm.stackHead = vm.stack; }
+void push (Value value) { *vm.stackHead = value; vm.stackHead++; }
+Value pop () { vm.stackHead--; return *vm.stackHead; }
+static Value peek (int dist) { return vm.stackHead[-1 - dist]; }
+static bool isFalse(Value value) { return IS_NONE(value) || (IS_BOOLEAN(value) && !AS_BOOLEAN(value)); }
 
-void push (Value value) {
-    *vm.stackHead = value;
-    vm.stackHead++;
-}
+static void runtimeErr(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+    fputs("\n", stderr);
 
-Value pop () {
-    vm.stackHead--;
-    return *vm.stackHead;
+    size_t instruct = vm.instruction - vm.sequence->code - 1;
+    int line = vm.sequence->line[instruct];
+    fprintf(stderr, "[line %d] in script\n", line);
+    resetStack;
 }
 
 void initVM () {
@@ -33,7 +39,17 @@ void freeVM () {
 static Interpretation elucidate() {
     #define READ_INSTRUCTION() (*vm.instruction++)
     #define READ_VALUE() (vm.sequence->constants.values[READ_INSTRUCTION()])
-    #define BINARY_OP(op) { do { double b = pop(); double a = pop(); push(a op b); } while (false); }
+    #define BINARY_OP(valueType, op) { \
+        do { \
+            if(!IS_NUMERAL(peek(0)) || !IS_NUMERAL(peek(1))) { \
+                runtimeErr("Operands must be numeral types."); \
+                return RUNTIME_ERROR; \
+            } \
+            double b = AS_NUMERAL(pop()); \
+            double a = AS_NUMERAL(pop()); \
+            push(valueType(a op b)); \
+            } while (false); \
+        }
     
     for (;;) {
         #ifdef DEBUG_TRACE_EXECUTION
@@ -71,24 +87,51 @@ static Interpretation elucidate() {
                 push(val);
                 break;
             }
-            case SIG_MULT: {
-                BINARY_OP(*);
+            case OP_NONE: push(NONE_VALUE); break;
+            case OP_TRUE: push(BOOLEAN_VALUE(true)); break;
+            case OP_FALSE: push(BOOLEAN_VALUE(false)); break;
+            case OP_ISEQUAL: {
+                Value b = pop();
+                Value a = pop();
+                push(BOOLEAN_VALUE(equalValues(a, b)));
                 break;
             }
-            case SIG_DIV: {
-                BINARY_OP(/);
+            case OP_ISGREATER: {
+                BINARY_OP(BOOLEAN_VALUE, >);
+                break;
+            }
+            case OP_ISLESSER: {
+                BINARY_OP(BOOLEAN_VALUE, <);
                 break;
             }
             case SIG_ADD: {
-                BINARY_OP(+);
+                BINARY_OP(NUMERAL_VALUE, +);
                 break;
             }
             case SIG_SUB: {
-                BINARY_OP(-);
+                BINARY_OP(NUMERAL_VALUE, -);
+                break;
+            }
+            case SIG_MULT: {
+                BINARY_OP(NUMERAL_VALUE, *);
+                break;
+            }
+            case SIG_DIV: {
+                BINARY_OP(NUMERAL_VALUE, /);
+                break;
+            }
+            case SIG_NOT: {
+                push(BOOLEAN_VALUE(isFalse(pop())));
                 break;
             }
             case SIG_NEG: {
-                push(-pop());
+                if(!IS_NUMERAL(peek(0))) {
+                    //TODO: Reverse string/Array
+                    runtimeErr("Operand must be a number.");
+                    return RUNTIME_ERROR;
+                    
+                }
+                push(NUMERAL_VALUE(-AS_NUMERAL(pop())));
                 break;
             }
             case SIG_RETURN: {

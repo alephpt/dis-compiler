@@ -7,6 +7,13 @@
 // instructions
 typedef enum {
     OP_VALUE,
+    OP_NONE,
+    OP_TRUE,
+    OP_FALSE,
+    OP_ISEQUAL,
+    OP_ISLESSER,
+    OP_ISGREATER,
+    SIG_NOT,
     SIG_NEG,
     SIG_ADD,
     SIG_SUB,
