@@ -9,6 +9,8 @@ typedef struct Obj Obj;
 typedef struct OString OString;
 //typedef struct Numeral Numeral;
 
+test
+
 typedef enum {
     V_BOOLEAN,
     V_NUMERAL,
