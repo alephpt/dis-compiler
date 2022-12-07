@@ -47,10 +47,12 @@ static void runtimeErr(const char* format, ...) {
 
 void initVM () {
     resetStack();
+    vm.objectHead = NULL;
     return;
 }
 
 void freeVM () {
+    freeObjects();
     return;
 }
 

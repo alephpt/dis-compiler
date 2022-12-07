@@ -10,6 +10,7 @@ typedef struct {
     uint8_t* instruction;
     Value stack[STACK_MAX];
     Value* stackHead;
+    Obj* objectHead;
 } Virtualizer;
 
 typedef enum {
@@ -17,6 +18,8 @@ typedef enum {
     COMPILE_ERROR,
     RUNTIME_ERROR
 } Interpretation;
+
+extern Virtualizer vm;
 
 
 void initVM();

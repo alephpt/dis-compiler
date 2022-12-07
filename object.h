@@ -19,6 +19,7 @@ typedef enum {
 
 struct Obj{
     ObjectT type;
+    struct Obj* next;
 };
 
 struct OString{
