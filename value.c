@@ -1,6 +1,8 @@
 #include <stdio.h>
+#include <string.h>
 #include "memory.h"
 #include "value.h"
+#include "object.h"
 
 void initValues (Values* arr) {
     arr->values = NULL;
@@ -24,7 +26,15 @@ bool equalValues (Value a, Value b) {
         case V_BOOLEAN:     return AS_BOOLEAN(a) == AS_BOOLEAN(b);
         case V_NONE:        return true;
         case V_NUMERAL:     return AS_NUMERAL(a) == AS_NUMERAL(b);
-        default:            return false;
+        case V_OBJECT:      {
+            OString* aStr = AS_STRING(a);
+            OString* bStr = AS_STRING(b);
+
+            return aStr->length == bStr->length &&
+                memcmp(aStr->chars, bStr->chars, aStr->length) == 0;
+        }
+        default:            
+            return false;
     }
 }
 
@@ -51,6 +61,9 @@ void printValue (Value val) {
             break;
         case V_NUMERAL:
             printf("%g", AS_NUMERAL(val));
+            break;
+        case V_OBJECT:
+            printObject(val);
             break;
     }
 }

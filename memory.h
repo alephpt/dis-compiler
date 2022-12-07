@@ -3,7 +3,7 @@
 
 #include "header.h"
 
-#define ALLOCATE(type, count) \ 
+#define ALLOCATE(type, count) \
     (type*)reallocate(NULL, 0, sizeof(type) * (count))
 
 #define EXPAND_LIMITS(capacity) \

@@ -3,7 +3,6 @@
 #include "header.h"
 #include "compiler.h"
 #include "scanner.h"
-#include "object.h"
 
 typedef void (*PType)();
 

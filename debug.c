@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include "debug.h"
-#include "value.h"
 
 static int instruct (const char* name, int offset) {
     printf("%s\n", name);
@@ -26,6 +25,12 @@ int stripCommand (Sequence* seq, int offset) {
         } else
         #ifdef DEBUG_TRACE_EXECUTION
         if (seq->code[offset] == OP_VALUE ||
+            seq->code[offset] == OP_TRUE ||
+            seq->code[offset] == OP_FALSE ||
+            seq->code[offset] == OP_NONE ||
+            seq->code[offset] == OP_EQUAL_TO ||
+            seq->code[offset] == OP_LESS_THAN ||
+            seq->code[offset] == OP_GREATER_THAN ||
             seq->code[offset] == SIG_NEG ||
             seq->code[offset] == SIG_DIV ||
             seq->code[offset] == SIG_ADD ||

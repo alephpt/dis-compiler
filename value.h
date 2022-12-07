@@ -2,12 +2,10 @@
 #define dis_value_h
 
 #include "header.h"
-#include "object.h"
-// #include "numeral.h"
 
 typedef struct Obj Obj;
 typedef struct OString OString;
-//typedef struct Numeral Numeral;
+// typedef struct Numeral Numeral;
 
 typedef enum {
     V_BOOLEAN,
@@ -21,9 +19,7 @@ typedef enum {
 typedef struct {
     ValueT type;
     union {
-        // union {a, b} pair;
         bool boolean;
- //       Numeral numeral;
         double numeral;
         Obj* object;
     } as;
@@ -33,7 +29,7 @@ typedef struct {
     int allocated;
     int inventory;
     Value* values;
-}  Values;
+} Values;
 
 #define NONE_VALUE              ((Value){V_NONE, {.numeral = 0}})
 #define BOOLEAN_VALUE(value)    ((Value){V_BOOLEAN, {.boolean = value}})

@@ -1,9 +1,12 @@
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
 #include "header.h"
 #include "virtualization.h"
 #include "compiler.h"
 #include "sequence.h"
+#include "memory.h"
+#include "object.h"
 #include "debug.h"
 
 Virtualizer vm;
@@ -13,6 +16,21 @@ void push (Value value) { *vm.stackHead = value; vm.stackHead++; }
 Value pop () { vm.stackHead--; return *vm.stackHead; }
 static Value peek (int dist) { return vm.stackHead[-1 - dist]; }
 static bool isFalse(Value value) { return IS_NONE(value) || (IS_BOOLEAN(value) && !AS_BOOLEAN(value)); }
+
+static void concatenation() {
+    OString* latter = AS_STRING(pop());
+    OString* prior = AS_STRING(pop());
+
+    int len = prior->length + latter->length;
+    
+    char* chars = ALLOCATE(char, len + 1);
+
+    memcpy(chars, prior->chars, prior->length);
+    memcpy(chars + prior->length, latter->chars, latter->length);
+
+    OString* newString = genString(chars, len);
+    push(OBJECT_VALUE(newString));
+}
 
 static void runtimeErr(const char* format, ...) {
     va_list args;
@@ -105,7 +123,16 @@ static Interpretation elucidate() {
                 break;
             }
             case SIG_ADD: {
-                BINARY_OP(NUMERAL_VALUE, +);
+                if (IS_STRING(peek(0)) && IS_STRING(peek(1))) {
+                    concatenation();
+                } else if (IS_NUMERAL(peek(0)) && IS_NUMERAL(peek(1))) {
+                    double latter = AS_NUMERAL(pop());
+                    double prior = AS_NUMERAL(pop());
+                    push(NUMERAL_VALUE(prior + latter));
+                } else {
+                    runtimeErr("Operands must be of the same type.");
+                    return RUNTIME_ERROR;
+                }
                 break;
             }
             case SIG_SUB: {
