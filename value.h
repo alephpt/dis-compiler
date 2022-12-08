@@ -5,7 +5,7 @@
 
 typedef struct Obj Obj;
 typedef struct OString OString;
-// typedef struct Numeral Numeral;
+//  TODO: typedef struct Numeral Numeral;
 
 typedef enum {
     V_BOOLEAN,
@@ -15,7 +15,7 @@ typedef enum {
     V_NONE,
 } ValueT;
 
-// add numeral type conversion to/from binary, hex, octal
+// TODO: add numeral type conversion to/from binary, hex, octal
 typedef struct {
     ValueT type;
     union {

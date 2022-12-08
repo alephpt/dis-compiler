@@ -26,6 +26,7 @@ struct OString{
     Obj object;
     int length;
     char* chars;
+    uint32_t hash;
 };
 
 OString* genString (char* chars, int len);

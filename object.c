@@ -18,24 +18,36 @@ static Obj* allocateObject (size_t size, ObjectT type) {
 }
 
 
-static OString* allocateString (char* chars, int len) {
+static OString* allocateString (char* chars, int len, uint32_t hash) {
     OString* string = ALLOCATE_OBJECT(OString, O_STRING);
     string->length = len;
     string->chars = chars;
+    string->hash = hash;
     return string;
 }
 
+uint32_t hashString (const char* chars, int len) {
+    uint32_t hash = 2166136261u;
+    for (int key = 0; key < len; key++) {
+        hash ^= (uint32_t)chars[key];
+        hash *= 16777619;
+    }
+    return hash;
+}
+
 OString* genString (char* chars, int len) {
-    return allocateString(chars, len);
+    uint32_t hash = hashString(chars, len);
+    return allocateString(chars, len, hash);
 }
 
 OString* copyString (const char* chars, int len) {
+    uint32_t hash = hashString(chars, len);
     char* heapChars = ALLOCATE(char, len + 1);
 
     memcpy(heapChars, chars, len);
     heapChars[len] = '\0';
 
-    return allocateString(heapChars, len);
+    return allocateString(heapChars, len, hash);
 }
 
 void printObject (Value value) {
