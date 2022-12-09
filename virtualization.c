@@ -48,10 +48,12 @@ static void runtimeErr(const char* format, ...) {
 void initVM () {
     resetStack();
     vm.objectHead = NULL;
+    initTable(&vm.strings);
     return;
 }
 
 void freeVM () {
+    freeTable(&vm.strings);
     freeObjects();
     return;
 }

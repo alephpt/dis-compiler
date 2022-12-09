@@ -37,7 +37,7 @@ static Record* findItem (Record* items, int limit, OString* key) {
         index = (index + 1) % limit;
     }
 
-    return NULL;
+    return marker;
 }
 
 static void adjustLimit (Table* table, int newLimit) {
@@ -68,7 +68,7 @@ static void adjustLimit (Table* table, int newLimit) {
 
 bool setTable (Table* table, OString* key, Value val) {
     if (table->tally + 1 > table->limit * TABLE_MAX_LOAD) {
-        int new_limit = GROW_CAPACITY(table->limit);
+        int new_limit = EXPAND_LIMITS(table->limit);
         adjustLimit(table, new_limit);
     }
 
@@ -82,17 +82,17 @@ bool setTable (Table* table, OString* key, Value val) {
     return newKey;
 }
 
-void getItem (Table* table, OString* key, Value* val) {
+bool getItem (Table* table, OString* key, Value* val) {
     if (table->tally == 0) { return false; }
 
     Result* item = findItem(table->items, table->limit, key);
     if (item->k == NULL) { return false; }
 
-    *value = item->v;
+    *val = item->v;
     return true;
 }
 
-void delItem (Table* table, OString* key) {
+bool delItem (Table* table, OString* key) {
     if (table->tally = 0) { return false; }
 
     Result* item = findItem(table->items, table->limit, key);
@@ -100,6 +100,7 @@ void delItem (Table* table, OString* key) {
 
     item->k = NULL;
     item->v = BOOLEAN_VALUE(true);
+
     return true;
 }
 
@@ -110,6 +111,27 @@ void copyTable (Table* source, Table* target) {
         if (item->k != NULL) {
             setTable(target, item->k, item->v);
         }
+    }
+    return;
+}
+
+OString* findString(Table* table, const char* chars, int len, uint32_t hash) {
+    if (table->tally == 0) { return NULL; }
+
+    uint32_t index = hash & table->limit;
+
+    for (;;) {
+        Record* item = &table->items[index];
+
+        if (item->k == NULL) {
+            if (IS_NONE(item->v)) { return NULL; }
+        } else if (item->k->length == len && 
+                   item->k->hash == hash &&
+                   memcmp(item->k->chars, chars, len) == 0) {
+            return item->k;
+        }
+
+        index = (index + 1) % table->limit;
     }
 }
 

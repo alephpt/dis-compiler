@@ -12,7 +12,7 @@ typedef struct {
 typedef struct {
     int tally;
     int limit;
-    Record items;
+    Record* items;
 } Table;
 
 void initTable(Table* table);
@@ -20,6 +20,7 @@ bool setTable(Table* table, OString* key, Value val);
 bool getItem(Table* table, OString* key, Value* val);
 bool delItem(Table* table, OString* key);
 void copyTable(Table* source, Table* target);
+OString* findString(Table* table, const char* chars, int len, uint32_t hash);
 void freeTable(Table* table);
 
 #endif

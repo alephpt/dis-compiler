@@ -3,6 +3,7 @@
 #define STACK_MAX 512
 
 #include "sequence.h"
+#include "table.h"
 #include "value.h"
 
 typedef struct {
@@ -11,6 +12,7 @@ typedef struct {
     Value stack[STACK_MAX];
     Value* stackHead;
     Obj* objectHead;
+    Table strings;
 } Virtualizer;
 
 typedef enum {

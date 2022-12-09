@@ -26,13 +26,7 @@ bool equalValues (Value a, Value b) {
         case V_BOOLEAN:     return AS_BOOLEAN(a) == AS_BOOLEAN(b);
         case V_NONE:        return true;
         case V_NUMERAL:     return AS_NUMERAL(a) == AS_NUMERAL(b);
-        case V_OBJECT:      {
-            OString* aStr = AS_STRING(a);
-            OString* bStr = AS_STRING(b);
-
-            return aStr->length == bStr->length &&
-                memcmp(aStr->chars, bStr->chars, aStr->length) == 0;
-        }
+        case V_OBJECT:      return AS_OBJECT(a) == AS_OBJECT(b);
         default:            
             return false;
     }
