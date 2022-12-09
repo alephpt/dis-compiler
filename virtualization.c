@@ -121,11 +121,21 @@ static Interpretation elucidate() {
                 Value val;
 
                 if (!getItem(&vm.globals, name, &val)) {
-                    runtimeErr("Undefined variable '%s'.", name->chars);
+                    runtimeErr("Global Return Failed: Undefined variable '%s'.", name->chars);
                     return RUNTIME_ERROR;
                 }
 
                 push(val);
+                break;
+            }
+            case SIG_GLOBAL_ASSIGN: {
+                OString* name = READ_STRING();
+
+                if (setTable(&vm.globals, name, peek(0))) {
+                    delItem(&vm.globals, name);
+                    runtimeErr("Global Assignment Failed: Undefined variable %s", name->chars);
+                    return RUNTIME_ERROR;
+                }
                 break;
             }
             case OP_GLOBAL: {

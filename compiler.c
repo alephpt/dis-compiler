@@ -4,7 +4,7 @@
 #include "compiler.h"
 #include "scanner.h"
 
-typedef void (*PType)();
+typedef void (*PType)(bool assignable);
 
 typedef struct {
     Token prev;
@@ -41,13 +41,13 @@ static void declaration();
 static void statement();
 static ParseRule* getRule(TType type);
 static void precedence(Precedence precede);
-static void numeral();
-static void string();
-static void variable();
-static void grouping();
-static void unary();
-static void binary();
-static void literal();
+static void numeral(bool assignable);
+static void string(bool assignable);
+static void variable(bool assignable);
+static void grouping(bool assignable);
+static void unary(bool assignable);
+static void binary(bool assignable);
+static void literal(bool assignable);
 
 ParseRule rules[] = {
     [T_L_PAR]            =             {grouping,      NULL,       P_NONE},
@@ -183,6 +183,15 @@ static void perception() {
     }
 }
 
+static bool check (TType type) { return parser.current.type == type; }
+
+static bool match (TType type) {
+    if (!check(type)) { return false; }
+    
+    perception();
+    return true;
+}
+
 static void rebase () {
     parser.panic = false;
 
@@ -217,24 +226,22 @@ static void precedence(Precedence precede) {
         return;
     }
 
-    prefix();
+    bool assignable = precede <= P_ASSIGN; 
+    prefix(assignable);
 
     while (precede <= getRule(parser.current.type)->precedence) {
         perception();
         PType infix = getRule(parser.prev.type)->infix;
-        infix();
+        infix(assignable);
+    }
+
+    if (assignable && match(T_ASSIGN)) {
+        prevErr("Invalid assignment target.");
     }
 }
 
 static ParseRule* getRule (TType type) { return &rules[type]; }
-static bool check (TType type) { return parser.current.type == type; }
 
-static bool match (TType type) {
-    if (!check(type)) { return false; }
-    
-    perception();
-    return true;
-}
 
 static void expression () {
     precedence(P_ASSIGN);
@@ -322,37 +329,38 @@ static void literal () {
     return;
 }
 
-static void numeral () {
+static void numeral (bool assignable) {
     double value = strtod(parser.prev.start, NULL);
     valueEmitter(NUMERAL_VALUE(value));
     return;
 }
 
-static void string () {
+static void string (bool assignable) {
     valueEmitter(OBJECT_VALUE(copyString(parser.prev.start + 1, parser.prev.length - 2)));
     return;
 }
 
-static void variableName (Token name) {
+static void variableName (Token name, bool assignable) {
     uint8_t var = identifier(&name);
 
-    if (match(T_ASSIGN)) {
+    if (assignable && match(T_ASSIGN)) {
+        expression();
         emitBytes(SIG_GLOBAL_ASSIGN, var);
     } else {
         emitBytes(SIG_GLOBAL_RETURN, var);
     }
 }
 
-static void variable () {
-    variableName(parser.prev);
+static void variable (bool assignable) {
+    variableName(parser.prev, assignable);
 }
 
-static void grouping () {
+static void grouping (bool assignable) {
     expression();
     consumption(T_R_PAR, "Expected ')' at end of expression.");
 }
 
-static void unary () {
+static void unary (bool assignable) {
     TType opType = parser.prev.type;
 
     precedence(P_UNARY);

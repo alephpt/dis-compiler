@@ -72,6 +72,8 @@ int stripCommand (Sequence* seq, int offset) {
             return instruct("SIG_POP", offset);
         case SIG_GLOBAL_RETURN:
             return instructValue("SIG_GLOBAL_RETURN", seq, offset);
+        case SIG_GLOBAL_ASSIGN:
+            return instructValue("SIG_GLOBAL_ASSIGN", seq, offset);
         case OP_GLOBAL:
             return instructValue("OP_GLOBAL", seq, offset);
         case OP_EQUAL_TO:
