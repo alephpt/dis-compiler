@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "memory.h"
 #include "object.h"
 #include "table.h"
@@ -42,13 +43,13 @@ static Record* findItem (Record* items, int limit, OString* key) {
 
 static void adjustLimit (Table* table, int newLimit) {
     Record* newItems = ALLOCATE(Record, newLimit);
-    table->tally = 0;
 
     for (int i = 0; i < newLimit; i++) {
         newItems[i].k = NULL;
         newItems[i].v = NONE_VALUE;
     }
 
+    table->tally = 0;
     for (int i = 0; i < table->limit; i++) {
         Record* item = &table->items[i];
 
@@ -93,7 +94,7 @@ bool getItem (Table* table, OString* key, Value* val) {
 }
 
 bool delItem (Table* table, OString* key) {
-    if (table->tally = 0) { return false; }
+    if (table->tally == 0) { return false; }
 
     Record* item = findItem(table->items, table->limit, key);
     if (item->k == NULL) { return false; }
@@ -118,7 +119,7 @@ void copyTable (Table* source, Table* target) {
 OString* findString(Table* table, const char* chars, int len, uint32_t hash) {
     if (table->tally == 0) { return NULL; }
 
-    uint32_t index = hash & table->limit;
+    uint32_t index = hash % table->limit;
 
     for (;;) {
         Record* item = &table->items[index];
