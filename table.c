@@ -85,7 +85,7 @@ bool setTable (Table* table, OString* key, Value val) {
 bool getItem (Table* table, OString* key, Value* val) {
     if (table->tally == 0) { return false; }
 
-    Result* item = findItem(table->items, table->limit, key);
+    Record* item = findItem(table->items, table->limit, key);
     if (item->k == NULL) { return false; }
 
     *val = item->v;
@@ -95,7 +95,7 @@ bool getItem (Table* table, OString* key, Value* val) {
 bool delItem (Table* table, OString* key) {
     if (table->tally = 0) { return false; }
 
-    Result* item = findItem(table->items, table->limit, key);
+    Record* item = findItem(table->items, table->limit, key);
     if (item->k == NULL) { return false; }
 
     item->k = NULL;
