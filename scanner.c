@@ -72,7 +72,7 @@ static TType iType() {
                 switch (scanner.start[1]) {
                     case 'e':
                         if (scanner.current - scanner.start > 5) {
-                            return checkWord(2, 4, "fine", T_OBJ);
+                            return checkWord(2, 4, "fine", T_DEFINE);
                         } else 
                         if (scanner.start[2] == 'f') {
                             return T_DEFINE;
