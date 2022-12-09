@@ -12,6 +12,7 @@ typedef struct {
     Value stack[STACK_MAX];
     Value* stackHead;
     Obj* objectHead;
+    Table globals;
     Table strings;
 } Virtualizer;
 
@@ -22,7 +23,6 @@ typedef enum {
 } Interpretation;
 
 extern Virtualizer vm;
-
 
 void initVM();
 void freeVM();

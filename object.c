@@ -31,7 +31,7 @@ static OString* allocateString (char* chars, int len, uint32_t hash) {
 uint32_t hashString (const char* chars, int len) {
     uint32_t hash = 2166136261u;
     for (int key = 0; key < len; key++) {
-        hash ^= (uint32_t)chars[key];
+        hash ^= (uint8_t)chars[key];
         hash *= 16777619;
     }
     return hash;

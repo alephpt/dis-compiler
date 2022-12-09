@@ -48,11 +48,13 @@ static void runtimeErr(const char* format, ...) {
 void initVM () {
     resetStack();
     vm.objectHead = NULL;
+    initTable(&vm.globals);
     initTable(&vm.strings);
     return;
 }
 
 void freeVM () {
+    freeTable(&vm.globals);
     freeTable(&vm.strings);
     freeObjects();
     return;
@@ -61,6 +63,7 @@ void freeVM () {
 static Interpretation elucidate() {
     #define READ_INSTRUCTION() (*vm.instruction++)
     #define READ_VALUE() (vm.sequence->constants.values[READ_INSTRUCTION()])
+    #define READ_STRING() AS_STRING(READ_VALUE())
     #define BINARY_OP(valueType, op) { \
         do { \
             if(!IS_NUMERAL(peek(0)) || !IS_NUMERAL(peek(1))) { \
@@ -112,6 +115,25 @@ static Interpretation elucidate() {
             case OP_NONE: push(NONE_VALUE); break;
             case OP_TRUE: push(BOOLEAN_VALUE(true)); break;
             case OP_FALSE: push(BOOLEAN_VALUE(false)); break;
+            case SIG_POP: pop(); break;
+            case SIG_GLOBAL_RETURN: {
+                OString* name = READ_STRING();
+                Value val;
+
+                if (!getItem(&vm.globals, name, &val)) {
+                    runtimeErr("Undefined variable '%s'.", name->chars);
+                    return RUNTIME_ERROR;
+                }
+
+                push(val);
+                break;
+            }
+            case OP_GLOBAL: {
+                OString* name = READ_STRING();
+                setTable(&vm.globals, name, peek(0));
+                pop();
+                break;
+            }
             case OP_EQUAL_TO: {
                 Value b = pop();
                 Value a = pop();
@@ -165,14 +187,19 @@ static Interpretation elucidate() {
                 push(NUMERAL_VALUE(-AS_NUMERAL(pop())));
                 break;
             }
+            case SIG_PRINT: {
+                printValue(pop());
+                printf("\n");
+                break;
+            }
             case SIG_RETURN: {
                 #ifdef DEBUG_TRACE_EXECUTION
                 printf("\n");
                 #endif
 
-                printf("return ");
-                printValue(pop());
-                printf("\n");
+                // printf("return ");
+                // printValue(pop());
+                // printf("\n");
 
                 return INTERPRETED;
             }
@@ -181,6 +208,7 @@ static Interpretation elucidate() {
 
     #undef READ_INSTRUCTION
     #undef READ_VALUE
+    #undef READ_STRING
     #undef BINARY_OP
 }
 

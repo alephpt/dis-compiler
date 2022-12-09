@@ -68,6 +68,12 @@ int stripCommand (Sequence* seq, int offset) {
             return instruct("OP_TRUE", offset);
         case OP_FALSE:
             return instruct("OP_FALSE", offset);
+        case SIG_POP:
+            return instruct("SIG_POP", offset);
+        case SIG_GLOBAL_RETURN:
+            return instructValue("SIG_GLOBAL_RETURN", seq, offset);
+        case OP_GLOBAL:
+            return instructValue("OP_GLOBAL", seq, offset);
         case OP_EQUAL_TO:
             return instruct("OP_EQUAL_TO", offset);
         case OP_GREATER_THAN:
@@ -86,6 +92,8 @@ int stripCommand (Sequence* seq, int offset) {
             return instruct("SIG_NOT", offset);
         case SIG_NEG:
             return instruct("SIG_NEG", offset);
+        case SIG_PRINT:
+            return instruct("SIG_PRINT", offset);
         case SIG_RETURN:
             return instruct("SIG_RETURN", offset);
         default:

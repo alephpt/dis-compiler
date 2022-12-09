@@ -29,8 +29,8 @@ typedef enum {
     T_WHACK,            // /                        - arithmetic divided
     T_MOD,              // %                        - modulos
     T_POWER,            // **                       - arithmetic power
-    T_PLUSPLUS,         // ++                       - arithmetic + 1
-    T_MINUSMINUS,       // --                       - arithmetic - 1
+    T_INCREMENT,        // ++                       - arithmetic + 1
+    T_DECREMENT,        // --                       - arithmetic - 1
     T_PLUS_EQ,          // +=                       - add right to left and store in left
     T_MINUS_EQ,         // -=                       - subtract right from left
     T_EQ_PLUS,          // =+                       - add left to right, and store in right
@@ -48,8 +48,8 @@ typedef enum {
     T_NOT,              // !                        - negation
 
     // Operational Operands
-    T_L_ASSIGN,         // <-                       - insert / apply right into left
-    T_R_ASSIGN,         // ->                       - insert / apply left to right
+    T_ASSIGN,           // <-                       - insert right into left
+    T_EXECUTE,          // ->                       - apply left to right
     T_L_OUT,            // <<                       - pipe right into left ?
     T_R_OUT,            // >>                       - pipe left into right ?
     T_COMMENT,          // //                       - comment

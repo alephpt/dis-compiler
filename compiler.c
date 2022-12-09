@@ -16,6 +16,7 @@ typedef struct {
 typedef enum {
     P_NONE,
     P_ASSIGN,
+    P_EXECUTE,
     P_OR,
     P_AND,
     P_EQUALS,
@@ -36,10 +37,13 @@ typedef struct {
 Parser parser;
 Sequence* compilingSequence;
 static void expression();
+static void declaration();
+static void statement();
 static ParseRule* getRule(TType type);
 static void precedence(Precedence precede);
 static void numeral();
 static void string();
+static void variable();
 static void grouping();
 static void unary();
 static void binary();
@@ -61,6 +65,8 @@ ParseRule rules[] = {
     [T_PERIOD]           =             {NULL,          NULL,       P_NONE},
     [T_PARAM_END]        =             {NULL,          NULL,       P_NONE},
     [T_CLOSE]            =             {NULL,          NULL,       P_NONE},
+    [T_ID]               =             {variable,      NULL,       P_NONE},
+    [T_EXECUTE]          =             {NULL,          NULL,       P_EXECUTE},
     [T_LOG]              =             {NULL,          NULL,       P_NONE},
     [T_MINUS]            =             {unary,         binary,     P_TERM},
     [T_PLUS]             =             {NULL,          binary,     P_TERM},
@@ -68,14 +74,14 @@ ParseRule rules[] = {
     [T_STAR]             =             {NULL,          binary,     P_FACTOR},
     [T_MOD]              =             {NULL,          NULL,       P_NONE},
     [T_POWER]            =             {NULL,          NULL,       P_NONE},
-    [T_PLUSPLUS]         =             {NULL,          NULL,       P_NONE},
-    [T_MINUSMINUS]       =             {NULL,          NULL,       P_NONE},
-    [T_PLUS_EQ]          =             {NULL,          binary,       P_NONE},
-    [T_MINUS_EQ]         =             {NULL,          binary,       P_NONE},
-    [T_EQ_PLUS]          =             {NULL,          binary,       P_NONE},
-    [T_EQ_MINUS]         =             {NULL,          binary,       P_NONE},
-    [T_AND_OP]           =             {NULL,          binary,       P_NONE},
-    [T_OR_OP]            =             {NULL,          binary,       P_NONE},
+    [T_INCREMENT]        =             {NULL,          NULL,       P_NONE},
+    [T_DECREMENT]        =             {NULL,          NULL,       P_NONE},
+    [T_PLUS_EQ]          =             {NULL,          binary,     P_NONE},
+    [T_MINUS_EQ]         =             {NULL,          binary,     P_NONE},
+    [T_EQ_PLUS]          =             {NULL,          binary,     P_NONE},
+    [T_EQ_MINUS]         =             {NULL,          binary,     P_NONE},
+    [T_AND_OP]           =             {NULL,          binary,     P_NONE},
+    [T_OR_OP]            =             {NULL,          binary,     P_NONE},
     [T_GREATER]          =             {NULL,          binary,     P_COMPARE},
     [T_LESSER]           =             {NULL,          binary,     P_COMPARE},
     [T_GTOE]             =             {NULL,          binary,     P_COMPARE},
@@ -83,8 +89,7 @@ ParseRule rules[] = {
     [T_EQEQ]             =             {NULL,          binary,     P_EQUALS},
     [T_INEQ]             =             {NULL,          binary,     P_EQUALS},
     [T_NOT]              =             {unary,         NULL,       P_NONE},
-    [T_L_ASSIGN]         =             {NULL,          NULL,       P_NONE},
-    [T_R_ASSIGN]         =             {NULL,          NULL,       P_NONE},
+    [T_ASSIGN]           =             {NULL,          NULL,       P_ASSIGN},
     [T_L_OUT]            =             {NULL,          NULL,       P_NONE},
     [T_R_OUT]            =             {NULL,          NULL,       P_NONE},
     [T_COMMENT]          =             {NULL,          NULL,       P_NONE},
@@ -114,7 +119,6 @@ ParseRule rules[] = {
     [T_DECIMAL]          =             {numeral,       NULL,       P_NONE},
     [T_OCTAL]            =             {numeral,       NULL,       P_NONE},
     [T_HEXADECIMAL]      =             {numeral,       NULL,       P_NONE},
-    [T_ID]               =             {NULL,          NULL,       P_NONE},
     [T_AS]               =             {NULL,          NULL,       P_NONE},
     [T_WHILE]            =             {NULL,          NULL,       P_NONE},
     [T_WHEN]             =             {NULL,          NULL,       P_NONE},
@@ -179,6 +183,30 @@ static void perception() {
     }
 }
 
+static void rebase () {
+    parser.panic = false;
+
+    while (parser.current.type != T_EOF) {
+        if (parser.prev.type == T_PERIOD) { return; }
+
+        switch (parser.current.type) {
+            case T_OBJ:
+            case T_OP:
+            case T_DEFINE:
+            case T_AS:
+            case T_WHEN:
+            case T_WHILE:
+            case T_LOG:
+            case T_RETURN:
+                return;
+            default:
+                ;
+        }
+
+        perception();
+    }
+}
+
 static void precedence(Precedence precede) {
     perception();
 
@@ -198,20 +226,89 @@ static void precedence(Precedence precede) {
     }
 }
 
-static ParseRule* getRule(TType type) { return &rules[type]; }
+static ParseRule* getRule (TType type) { return &rules[type]; }
+static bool check (TType type) { return parser.current.type == type; }
 
-static void expression() {
+static bool match (TType type) {
+    if (!check(type)) { return false; }
+    
+    perception();
+    return true;
+}
+
+static void expression () {
     precedence(P_ASSIGN);
     return;
 }
 
 static void consumption (TType t, const char* message) {
-    if (parser.current.type = t) {
+    if (parser.current.type == t) {
         perception();
         return;
     }
 
     currentErr(message);
+    return;
+}
+
+static void printStatement () {
+    consumption(T_EXECUTE, "Expected '->' after 'log' statement.");
+    expression();
+    consumption(T_PERIOD, "Expected '.' after value.");
+    byteEmitter(SIG_PRINT);
+}
+
+static void expressionStatement () {
+    expression();
+    consumption(T_PERIOD, "Expected '.' after expression.");
+    byteEmitter(SIG_POP);
+    return;
+}
+
+static void statement () {
+    if (match(T_LOG)) { printStatement(); } 
+    else { expressionStatement(); }
+    return;
+}
+
+static uint8_t identifier (Token* name) {
+    return genValue(OBJECT_VALUE(copyString(name->start, name->length)));
+}
+
+static uint8_t parseDefinition (const char* message) {
+    consumption(T_ID, message);
+    return identifier(&parser.prev);
+}
+
+static void define (uint8_t global) {
+    emitBytes(OP_GLOBAL, global);
+}
+
+static void definition () {
+    uint8_t global = parseDefinition("Expected variable name.");
+
+    if (match(T_ASSIGN)) {
+        expression();
+    } else {
+        // TODO: Implement 'DEAD' type;
+        byteEmitter(OP_NONE);
+    }
+
+    consumption(T_PERIOD, "Expected ',' after Variable declaration.");
+
+    define(global);
+    return;
+}
+ 
+static void declaration () {
+    if (match(T_DEFINE)) {
+        definition();
+    } else {
+        statement();
+    }
+
+    if (parser.panic) { rebase(); }
+
     return;
 }
 
@@ -234,6 +331,20 @@ static void numeral () {
 static void string () {
     valueEmitter(OBJECT_VALUE(copyString(parser.prev.start + 1, parser.prev.length - 2)));
     return;
+}
+
+static void variableName (Token name) {
+    uint8_t var = identifier(&name);
+
+    if (match(T_ASSIGN)) {
+        emitBytes(SIG_GLOBAL_ASSIGN, var);
+    } else {
+        emitBytes(SIG_GLOBAL_RETURN, var);
+    }
+}
+
+static void variable () {
+    variableName(parser.prev);
 }
 
 static void grouping () {
@@ -288,8 +399,11 @@ bool compile(const char* source, Sequence* sequence) {
     parser.panic = false;
 
     perception();
-    expression();
-    consumption(T_EOF, "Expected End of Expression.");
+
+    while (!match(T_EOF)) {
+        declaration();
+    }
+ 
     closer();
     return !parser.erroneous;
 }

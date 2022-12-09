@@ -67,15 +67,27 @@ static TType checkWord(int s, int l, const char* rem, TType t) {
 static TType iType() {
     switch (scanner.start[0]) {
         case 'a': return checkWord(1, 1, "s", T_AS);
+        case 'd': 
+            if (scanner.current - scanner.start > 2) {
+                switch (scanner.start[1]) {
+                    case 'e':
+                        if (scanner.current - scanner.start > 5) {
+                            return checkWord(2, 4, "fine", T_OBJ);
+                        } else 
+                        if (scanner.start[2] == 'f') {
+                            return T_DEFINE;
+                        }
+                }
+            }
         case 'e': 
-            if (scanner.current - scanner.start > 1) {
+            if (scanner.current - scanner.start > 3) {
                 switch (scanner.start[1]) {
                     case 'n': return checkWord(2, 2, "um", T_ENUM);
                     case 'l': return checkWord(2, 2, "se", T_ELSE);
                 }
             }
         case 'f': 
-            if (scanner.current - scanner.start > 1) {
+            if (scanner.current - scanner.start > 3) {
                 switch (scanner.start[1]) {
                     case 'a': return checkWord(2, 3, "lse", T_FALSE);
                     case 'o': return checkWord(2, 2, "rm", T_FORM);
@@ -96,7 +108,7 @@ static TType iType() {
             if (scanner.current - scanner.start > 2) {
                 switch (scanner.start[1]) {
                     case 'b': 
-                        if (scanner.current - scanner.start > 3) {
+                        if (scanner.current - scanner.start > 5) {
                             return checkWord(2, 4, "ject", T_OBJ);
                         } else 
                         if (scanner.start[2] == 'j') {
@@ -123,7 +135,7 @@ static TType iType() {
         case 'r': return checkWord(1, 5, "eturn", T_RETURN);
         case 's': return checkWord(1, 3, "elf", T_SELF);
         case 't': 
-            if (scanner.current - scanner.start > 1) {
+            if (scanner.current - scanner.start > 3) {
                 switch (scanner.start[1]) {
                     case 'h': return checkWord(2, 2, "is", T_THIS);
                     case 'r': return checkWord(2, 2, "ue", T_TRUE);
@@ -265,7 +277,7 @@ Token scanToken () {
         case ',': return genToken(T_COMMA);
         case ':': return genToken( match(':') ? T_MEMBER : T_PARAM_END );
         case '+': return genToken(T_PLUS);
-        case '-': return genToken(T_MINUS);
+        case '-': return genToken( match('>') ? T_EXECUTE : match('-') ? T_DECREMENT : T_MINUS);
         case '*': return genToken(T_STAR);
         case '/': return genToken(T_WHACK);
         case '_': return genToken(T_UNDER);
@@ -274,7 +286,7 @@ Token scanToken () {
         case '^': return genToken(T_CLOSE);
         case '!': return genToken( match('=') ? T_INEQ : T_NOT );
         case '=': return genToken( match('=') ? T_EQEQ : T_EQ );
-        case '<': return genToken( match('=') ? T_LTOE : T_LESSER );
+        case '<': return genToken( match('=') ? T_LTOE : match('-') ? T_ASSIGN : T_LESSER );
         case '>': return genToken( match('=') ? T_GTOE : T_GREATER );
         case '"': return string();
     }
