@@ -21,6 +21,8 @@ typedef enum {
     SIG_SUB,
     SIG_MULT,
     SIG_DIV,
+    SIG_LOCAL_ASSIGN,
+    SIG_LOCAL_RETURN,
     SIG_GLOBAL_ASSIGN,
     SIG_GLOBAL_RETURN,
     SIG_PRINT,

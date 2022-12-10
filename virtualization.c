@@ -116,6 +116,17 @@ static Interpretation elucidate() {
             case OP_TRUE: push(BOOLEAN_VALUE(true)); break;
             case OP_FALSE: push(BOOLEAN_VALUE(false)); break;
             case SIG_POP: pop(); break;
+            case SIG_LOCAL_RETURN: {
+                printf("vm - SIG_LOCAL_RETURN");
+                uint8_t local = READ_INSTRUCTION();
+                push(vm.stack[local]);
+                break;
+            }
+            case SIG_LOCAL_ASSIGN: {
+                uint8_t local = READ_INSTRUCTION();
+                vm.stack[local] = peek(0);
+                break;
+            }
             case SIG_GLOBAL_RETURN: {
                 OString* name = READ_STRING();
                 Value val;

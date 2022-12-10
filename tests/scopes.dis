@@ -1,0 +1,22 @@
+$
+    def l1 <- "l1 - Layer 2".
+    def l2 <- "l2 - Layer 2".
+    $
+        def l2 <- "l2 - Layer 3".
+        def l3 <- "l3 - Layer 3".
+        $
+            def l3 <- "l3 - Layer 4".
+            log -> " - Layer 4 -".
+            log -> l3.
+            log -> l2.
+            log -> l1.
+        ^
+        log -> "\n - Layer 3 - ".
+        log -> l3.
+        log -> l2.
+        log -> l1.
+    ^
+    log -> "\n - Layer 2 - ".
+    log -> l2.
+    log -> l1.
+^

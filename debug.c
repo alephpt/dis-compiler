@@ -6,6 +6,12 @@ static int instruct (const char* name, int offset) {
     return offset + 1;
 }
 
+static int instructByte (const char* name, Sequence* sequence, int offset) {
+    uint8_t byte = sequence->code[offset + 1];
+    printf("%-16s %4d\n", name, byte);
+    return offset + 2;
+}
+
 static int instructValue (const char* name, Sequence* sequence, int offset) {
     uint8_t value = sequence->code[offset + 1];
     printf("%-16s %4d   '", name, value);
@@ -70,6 +76,10 @@ int stripCommand (Sequence* seq, int offset) {
             return instruct("OP_FALSE", offset);
         case SIG_POP:
             return instruct("SIG_POP", offset);
+        case SIG_LOCAL_ASSIGN:
+            return instructByte("SIG_LOCAL_RETURN", seq, offset);
+        case SIG_LOCAL_RETURN:
+            return instructByte("SIG_LOCAL_ASSIGN", seq, offset);
         case SIG_GLOBAL_RETURN:
             return instructValue("SIG_GLOBAL_RETURN", seq, offset);
         case SIG_GLOBAL_ASSIGN:

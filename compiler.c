@@ -17,6 +17,7 @@ typedef struct {
 typedef enum {
     P_NONE,
     P_ASSIGN,
+    P_RETURN,
     P_EXECUTE,
     P_OR,
     P_AND,
@@ -295,7 +296,7 @@ static void printStatement () {
 
 static void expressionStatement () {
     expression();
-    consumption(T_PERIOD, "Expected '.' after expression.");
+    consumption(T_PERIOD, "Expected '.' at the end of the expression.");
     byteEmitter(SIG_POP);
     return;
 }
@@ -309,9 +310,9 @@ static void endScope () {
     current->local_D--;
 
     while (current->local_N > 0 &&
-           current->locals[current->local_N - 1].depth > current->local_D) {
+           current->locals[current->local_N - 1].d > current->local_D) {
             byteEmitter(SIG_POP);
-            current->local_D--;
+            current->local_N--;
     }
 
     return;
@@ -329,6 +330,8 @@ static void statement () {
 }
 
 static uint8_t identifier (Token* name) {
+    printf("hit ident in parse");
+
     return genValue(OBJECT_VALUE(copyString(name->start, name->length)));
 }
 
@@ -340,27 +343,32 @@ static void scopeLocalDefinition (Token name) {
 
     LocalT* local = &current->locals[current->local_N++];
     local->name = name;
-    local->d = current->local_D;
+    local->d = -1;
 }
 
-static bool idCollides(Token* name, LocalT* localName) {
+static bool identifiersMatch(Token* name, Token* localName) {
+    printf("idmatch - name: %.*s - lName: %.*s", name->start, name->length, localName->start, localName->length);
     if (localName->length != name->length) { return false; }
-    return memcmp(localName->start, name->start, localName->length) == 0;
+    return memcmp(name->start, localName->start, name->length) == 0;
 }
 
 static void declareDefinition () {
-    if (current->local_D) { return; }
+    if (current->local_D == 0) { return; }
 
     Token* name = &parser.prev;
 
     for (int i = current->local_N - 1; i >= 0; i--) {
+        printf("declare - local.i: %d\n", i);
+
         LocalT* local = &current->locals[i];
+        printf("declare - local.name: %.*s\n", &local->name.start, &local->name.length);
+
 
         if (local->d != -1 && local->d < current->local_D) {
             break;
         }
 
-        if (idCollides(name, &local->name)) {
+        if (identifiersMatch(name, &local->name)) {
             prevErr("Variable with that name already exists in the same scope.");
         }
     }
@@ -377,8 +385,13 @@ static uint8_t parseDefinition (const char* message) {
     return identifier(&parser.prev);
 }
 
+static void initializeDefinition () {
+    current->locals[current->local_N - 1].d = current->local_D;
+}
+
 static void define (uint8_t global) {
     if (current->local_D > 0) {
+        initializeDefinition();
         return;
     }
     // TODO: implement check for global keyword and resort
@@ -395,7 +408,7 @@ static void definition () {
         byteEmitter(OP_NONE);
     }
 
-    consumption(T_PERIOD, "Expected ',' after Variable declaration.");
+    consumption(T_PERIOD, "Expected '.' after Variable declaration.");
 
     define(global);
     return;
@@ -434,14 +447,39 @@ static void string (bool assignable) {
     return;
 }
 
+uint8_t findLocality(Compiler* c, Token* name) {
+    for (int i = c->local_N - 1; i >= 0; i--) {
+        LocalT* local = &c->locals[i];
+
+        if (identifiersMatch(name, &local->name)) { 
+            if (local->d == -1) {
+                prevErr("Can't read local variable in it's own initializer.");
+            }
+            return i;
+        }
+    }
+
+    return -1;
+}
+
 static void variableName (Token name, bool assignable) {
-    uint8_t var = identifier(&name);
+    uint8_t sigAssign, sigReturn;
+    int var = findLocality(current, &name); 
+    
+    if (var != -1) {
+        sigReturn = SIG_LOCAL_RETURN;
+        sigAssign = SIG_LOCAL_ASSIGN;
+    } else {
+        var = identifier(&name);
+        sigReturn = SIG_GLOBAL_RETURN;
+        sigAssign = SIG_GLOBAL_ASSIGN;
+    }
 
     if (assignable && match(T_ASSIGN)) {
         expression();
-        emitBytes(SIG_GLOBAL_ASSIGN, var);
+        emitBytes(sigAssign, (uint8_t)var);
     } else {
-        emitBytes(SIG_GLOBAL_RETURN, var);
+        emitBytes(sigReturn, (uint8_t)var);
     }
 }
 
