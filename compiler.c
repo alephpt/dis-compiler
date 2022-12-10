@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include "header.h"
 #include "compiler.h"
@@ -34,7 +35,19 @@ typedef struct {
     Precedence precedence;
 } ParseRule;
 
+typedef struct {
+    Token name;
+    int d;
+} LocalT;
+
+typedef struct {
+    LocalT locals[UINT8_COUNT];
+    int local_N;
+    int local_D;
+} Compiler;
+
 Parser parser;
+Compiler* current = NULL;
 Sequence* compilingSequence;
 static void expression();
 static void declaration();
@@ -134,6 +147,13 @@ ParseRule rules[] = {
 };
 
 static Sequence* currentSequence() { return compilingSequence; }
+
+static void initCompiler (Compiler* compiler) {
+    compiler->local_N = 0;
+    compiler->local_D = 0;
+    current = compiler;
+    return;
+}
 
 static void err(Token* token, const char* message) {
     if (parser.panic) { return; }
@@ -258,6 +278,14 @@ static void consumption (TType t, const char* message) {
     return;
 }
 
+static void segment () {
+    while (!check(T_CLOSE) && !check(T_EOF)) {
+        declaration();
+    }
+
+    consumption(T_CLOSE, "Expected closing '^' at end of segment.");
+}
+
 static void printStatement () {
     consumption(T_EXECUTE, "Expected '->' after 'log' statement.");
     expression();
@@ -272,8 +300,30 @@ static void expressionStatement () {
     return;
 }
 
+static void beginScope () {
+    current->local_D++; 
+    return;
+}
+
+static void endScope () {
+    current->local_D--;
+
+    while (current->local_N > 0 &&
+           current->locals[current->local_N - 1].depth > current->local_D) {
+            byteEmitter(SIG_POP);
+            current->local_D--;
+    }
+
+    return;
+}
+
 static void statement () {
     if (match(T_LOG)) { printStatement(); } 
+    else if (match(T_OPEN)) {
+        beginScope();
+        segment();
+        endScope();
+    }
     else { expressionStatement(); }
     return;
 }
@@ -282,12 +332,56 @@ static uint8_t identifier (Token* name) {
     return genValue(OBJECT_VALUE(copyString(name->start, name->length)));
 }
 
+static void scopeLocalDefinition (Token name) {
+    if (current->local_N == UINT8_COUNT) {
+        prevErr("Local variable limit exceeded.");
+        return;
+    }
+
+    LocalT* local = &current->locals[current->local_N++];
+    local->name = name;
+    local->d = current->local_D;
+}
+
+static bool idCollides(Token* name, LocalT* localName) {
+    if (localName->length != name->length) { return false; }
+    return memcmp(localName->start, name->start, localName->length) == 0;
+}
+
+static void declareDefinition () {
+    if (current->local_D) { return; }
+
+    Token* name = &parser.prev;
+
+    for (int i = current->local_N - 1; i >= 0; i--) {
+        LocalT* local = &current->locals[i];
+
+        if (local->d != -1 && local->d < current->local_D) {
+            break;
+        }
+
+        if (idCollides(name, &local->name)) {
+            prevErr("Variable with that name already exists in the same scope.");
+        }
+    }
+
+    scopeLocalDefinition(*name);
+}
+
 static uint8_t parseDefinition (const char* message) {
     consumption(T_ID, message);
+
+    declareDefinition();
+    if (current->local_D > 0) { return 0; }
+
     return identifier(&parser.prev);
 }
 
 static void define (uint8_t global) {
+    if (current->local_D > 0) {
+        return;
+    }
+    // TODO: implement check for global keyword and resort
     emitBytes(OP_GLOBAL, global);
 }
 
@@ -398,8 +492,11 @@ static void returnEmitter() { byteEmitter(SIG_RETURN); return; }
 static void closer() { returnEmitter(); return; }
 
 bool compile(const char* source, Sequence* sequence) {
+    Compiler compiler;
     int line = -1;
+
     initScanner(source);
+    initCompiler(&compiler);
 
     compilingSequence = sequence;
 
