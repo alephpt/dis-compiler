@@ -17,8 +17,7 @@ typedef struct {
 typedef enum {
     P_NONE,
     P_ASSIGN,
-    P_RETURN,
-    P_EXECUTE,
+    P_LOG,
     P_OR,
     P_AND,
     P_EQUALS,
@@ -27,7 +26,7 @@ typedef enum {
     P_FACTOR,
     P_UNARY,
     P_CALL,
-    P_PRIMARY
+    P_PRIMARY,
 } Precedence;
 
 typedef struct {
@@ -38,13 +37,13 @@ typedef struct {
 
 typedef struct {
     Token name;
-    int d;
+    int scope;
 } LocalT;
 
 typedef struct {
     LocalT locals[UINT8_COUNT];
-    int local_N;
-    int local_D;
+    int localCount;
+    int localScope;
 } Compiler;
 
 Parser parser;
@@ -80,8 +79,8 @@ ParseRule rules[] = {
     [T_PARAM_END]        =             {NULL,          NULL,       P_NONE},
     [T_CLOSE]            =             {NULL,          NULL,       P_NONE},
     [T_ID]               =             {variable,      NULL,       P_NONE},
-    [T_EXECUTE]          =             {NULL,          NULL,       P_EXECUTE},
-    [T_LOG]              =             {NULL,          NULL,       P_NONE},
+    [T_EXECUTE]          =             {NULL,          NULL,       P_NONE},
+    [T_LOG]              =             {NULL,          NULL,       P_LOG},
     [T_MINUS]            =             {unary,         binary,     P_TERM},
     [T_PLUS]             =             {NULL,          binary,     P_TERM},
     [T_WHACK]            =             {NULL,          binary,     P_FACTOR},
@@ -150,8 +149,8 @@ ParseRule rules[] = {
 static Sequence* currentSequence() { return compilingSequence; }
 
 static void initCompiler (Compiler* compiler) {
-    compiler->local_N = 0;
-    compiler->local_D = 0;
+    compiler->localCount = 0;
+    compiler->localScope = 0;
     current = compiler;
     return;
 }
@@ -192,7 +191,7 @@ static uint8_t genValue(Value val) {
 
 static void valueEmitter(Value value) { emitBytes(OP_VALUE, genValue(value)); }
 
-static void perception() {
+static void stepThrough() {
     parser.prev = parser.current;
 
     for (;;) {
@@ -209,7 +208,7 @@ static bool check (TType type) { return parser.current.type == type; }
 static bool match (TType type) {
     if (!check(type)) { return false; }
     
-    perception();
+    stepThrough();
     return true;
 }
 
@@ -233,12 +232,12 @@ static void rebase () {
                 ;
         }
 
-        perception();
+        stepThrough();
     }
 }
 
 static void precedence(Precedence precede) {
-    perception();
+    stepThrough();
 
     PType prefix = getRule(parser.prev.type)->prefix;
 
@@ -251,7 +250,7 @@ static void precedence(Precedence precede) {
     prefix(assignable);
 
     while (precede <= getRule(parser.current.type)->precedence) {
-        perception();
+        stepThrough();
         PType infix = getRule(parser.prev.type)->infix;
         infix(assignable);
     }
@@ -269,9 +268,9 @@ static void expression () {
     return;
 }
 
-static void consumption (TType t, const char* message) {
+static void forceConsume (TType t, const char* message) {
     if (parser.current.type == t) {
-        perception();
+        stepThrough();
         return;
     }
 
@@ -279,40 +278,41 @@ static void consumption (TType t, const char* message) {
     return;
 }
 
-static void segment () {
+static void scope () {
     while (!check(T_CLOSE) && !check(T_EOF)) {
         declaration();
     }
 
-    consumption(T_CLOSE, "Expected closing '^' at end of segment.");
+    forceConsume(T_CLOSE, "Expected closing '^' at end of scope.");
 }
 
 static void printStatement () {
-    consumption(T_EXECUTE, "Expected '->' after 'log' statement.");
+    // printf("passed Print\n");
+    forceConsume(T_EXECUTE, "Expected '->' after 'log' statement.");
     expression();
-    consumption(T_PERIOD, "Expected '.' after value.");
+    forceConsume(T_PERIOD, "Expected '.' after value.");
     byteEmitter(SIG_PRINT);
 }
 
 static void expressionStatement () {
     expression();
-    consumption(T_PERIOD, "Expected '.' at the end of the expression.");
+    forceConsume(T_PERIOD, "Expected '.' at the end of the expression.");
     byteEmitter(SIG_POP);
     return;
 }
 
 static void beginScope () {
-    current->local_D++; 
+    current->localScope++; 
     return;
 }
 
 static void endScope () {
-    current->local_D--;
+    current->localScope--;
 
-    while (current->local_N > 0 &&
-           current->locals[current->local_N - 1].d > current->local_D) {
+    while (current->localCount > 0 &&
+           current->locals[current->localCount - 1].scope > current->localScope) {
             byteEmitter(SIG_POP);
-            current->local_N--;
+            current->localCount--;
     }
 
     return;
@@ -322,7 +322,7 @@ static void statement () {
     if (match(T_LOG)) { printStatement(); } 
     else if (match(T_OPEN)) {
         beginScope();
-        segment();
+        scope();
         endScope();
     }
     else { expressionStatement(); }
@@ -330,41 +330,35 @@ static void statement () {
 }
 
 static uint8_t identifier (Token* name) {
-    printf("hit ident in parse");
-
     return genValue(OBJECT_VALUE(copyString(name->start, name->length)));
 }
 
-static void scopeLocalDefinition (Token name) {
-    if (current->local_N == UINT8_COUNT) {
+static void defineLocal (Token name) {
+    if (current->localCount == UINT8_COUNT) {
         prevErr("Local variable limit exceeded.");
         return;
     }
 
-    LocalT* local = &current->locals[current->local_N++];
+    LocalT* local = &current->locals[current->localCount++];
     local->name = name;
-    local->d = -1;
+    local->scope = -1;
 }
 
-static bool identifiersMatch(Token* name, Token* localName) {
-    printf("idmatch - name: %.*s - lName: %.*s", name->start, name->length, localName->start, localName->length);
-    if (localName->length != name->length) { return false; }
-    return memcmp(name->start, localName->start, name->length) == 0;
+static bool identifiersMatch(Token* a, Token* b) {
+    if (a->length != b->length) { return false; }
+    return memcmp(a->start, b->start, a->length) == 0;
 }
 
 static void declareDefinition () {
-    if (current->local_D == 0) { return; }
+    // printf("current.localScope = %d\n", current->localScope);
+    if (current->localScope == 0) { return; }
 
     Token* name = &parser.prev;
 
-    for (int i = current->local_N - 1; i >= 0; i--) {
-        printf("declare - local.i: %d\n", i);
-
+    for (int i = current->localCount - 1; i >= 0; i--) {
         LocalT* local = &current->locals[i];
-        printf("declare - local.name: %.*s\n", &local->name.start, &local->name.length);
 
-
-        if (local->d != -1 && local->d < current->local_D) {
+        if (local->scope != -1 && local->scope < current->localScope) {
             break;
         }
 
@@ -373,33 +367,38 @@ static void declareDefinition () {
         }
     }
 
-    scopeLocalDefinition(*name);
+    defineLocal(*name);
+    return;
 }
 
 static uint8_t parseDefinition (const char* message) {
-    consumption(T_ID, message);
+    forceConsume(T_ID, message);
+
+    // printf("consumed Identifier\n");
 
     declareDefinition();
-    if (current->local_D > 0) { return 0; }
+    // printf("passed declaration\n");
+    if (current->localScope > 0) { return 0; }
 
+    // printf("returning ID in parse\n");
     return identifier(&parser.prev);
 }
 
 static void initializeDefinition () {
-    current->locals[current->local_N - 1].d = current->local_D;
+    current->locals[current->localCount - 1].scope = current->localScope;
 }
 
-static void define (uint8_t global) {
-    if (current->local_D > 0) {
+static void defineVariable (uint8_t variable) {
+    if (current->localScope > 0) {
         initializeDefinition();
         return;
     }
     // TODO: implement check for global keyword and resort
-    emitBytes(OP_GLOBAL, global);
+    emitBytes(OP_GLOBAL, variable);
 }
 
 static void definition () {
-    uint8_t global = parseDefinition("Expected variable name.");
+    uint8_t variable = parseDefinition("Expected variable name.");
 
     if (match(T_ASSIGN)) {
         expression();
@@ -408,9 +407,9 @@ static void definition () {
         byteEmitter(OP_NONE);
     }
 
-    consumption(T_PERIOD, "Expected '.' after Variable declaration.");
+    forceConsume(T_PERIOD, "Expected '.' after Variable declaration.");
 
-    define(global);
+    defineVariable(variable);
     return;
 }
  
@@ -418,6 +417,7 @@ static void declaration () {
     if (match(T_DEFINE)) {
         definition();
     } else {
+        // printf("hit statement in declaration\n");
         statement();
     }
 
@@ -447,23 +447,27 @@ static void string (bool assignable) {
     return;
 }
 
-uint8_t findLocality(Compiler* c, Token* name) {
-    for (int i = c->local_N - 1; i >= 0; i--) {
+static int findLocality(Compiler* c, Token* name) {
+    // printf("hit locality ct: %d\n", c->localCount);
+    for (int i = c->localCount - 1; i >= 0; i--) {
+        // printf("i: %d\n", i);
         LocalT* local = &c->locals[i];
 
         if (identifiersMatch(name, &local->name)) { 
-            if (local->d == -1) {
+            if (local->scope == -1) {
                 prevErr("Can't read local variable in it's own initializer.");
             }
+            // printf("identifiersMatch - returning i: %d\n", i);
             return i;
         }
     }
-
+    // printf("returning  from locality");
     return -1;
 }
 
 static void variableName (Token name, bool assignable) {
     uint8_t sigAssign, sigReturn;
+    // printf("hit variableName\n");
     int var = findLocality(current, &name); 
     
     if (var != -1) {
@@ -484,12 +488,13 @@ static void variableName (Token name, bool assignable) {
 }
 
 static void variable (bool assignable) {
+    // printf("hit variable\n");
     variableName(parser.prev, assignable);
 }
 
 static void grouping (bool assignable) {
     expression();
-    consumption(T_R_PAR, "Expected ')' at end of expression.");
+    forceConsume(T_R_PAR, "Expected ')' at end of expression.");
 }
 
 static void unary (bool assignable) {
@@ -541,7 +546,7 @@ bool compile(const char* source, Sequence* sequence) {
     parser.erroneous = false;
     parser.panic = false;
 
-    perception();
+    stepThrough();
 
     while (!match(T_EOF)) {
         declaration();

@@ -1,22 +1,37 @@
+def g1 <- "g1 - Layer 1".
+def l1 <- "l1 - Layer 1".
+
+log -> "Entering L1 with g1, l1".
 $
     def l1 <- "l1 - Layer 2".
     def l2 <- "l2 - Layer 2".
+    log -> "Entering L2 with l1, l2".
     $
         def l2 <- "l2 - Layer 3".
         def l3 <- "l3 - Layer 3".
+        log -> "Entering L3 with l2, l3".
         $
+            log-> "".
             def l3 <- "l3 - Layer 4".
             log -> " - Layer 4 -".
+            log -> g1.
             log -> l3.
             log -> l2.
             log -> l1.
         ^
-        log -> "\n - Layer 3 - ".
+        log-> "".
+        log -> " - Layer 3 - ".
+        log -> g1.
         log -> l3.
         log -> l2.
         log -> l1.
     ^
-    log -> "\n - Layer 2 - ".
+    log-> "".
+    log -> " - Layer 2 - ".
+    log -> g1.
     log -> l2.
     log -> l1.
 ^
+log -> " - Layer 1 - ".
+log -> g1.
+log -> l1.
