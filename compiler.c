@@ -173,12 +173,19 @@ static void err(Token* token, const char* message) {
     parser.erroneous = true;
 }
 
-static void currentErr(const char* message) { err(&parser.current, message); }
-static void prevErr(const char* message) { err(&parser.prev, message); }
-static void byteEmitter(uint8_t byte) { writeSequence(currentSequence(), byte, parser.prev.line); }
-static void emitBytes(uint8_t byte1, uint8_t byte2) { byteEmitter(byte1); byteEmitter(byte2); }
+static void currentErr (const char* message) { err(&parser.current, message); }
+static void prevErr (const char* message) { err(&parser.prev, message); }
+static void byteEmitter (uint8_t byte) { writeSequence(currentSequence(), byte, parser.prev.line); }
+static void emitBytes (uint8_t byte1, uint8_t byte2) { byteEmitter(byte1); byteEmitter(byte2); }
 
-static uint8_t genValue(Value val) {
+static int jumpEmitter (uint8_t signal) {
+    byteEmitter(signal);
+    byteEmitter(0xff);
+    byteEmitter(0xff);
+    return currentSequence()->inventory - 2;
+}
+
+static uint8_t genValue (Value val) {
     int value = addValue(currentSequence(), val);
 
     if (value > UINT8_MAX) {
@@ -189,9 +196,20 @@ static uint8_t genValue(Value val) {
     return (uint8_t)value;
 }
 
-static void valueEmitter(Value value) { emitBytes(OP_VALUE, genValue(value)); }
+static void valueEmitter (Value value) { emitBytes(OP_VALUE, genValue(value)); }
 
-static void stepThrough() {
+static void landJump (int offset) {
+    int jumpSize = currentSequence()->inventory - offset - 2;
+
+    if (jumpSize > UINT16_MAX) {
+        prevErr("Jump size too large");
+    }
+
+    currentSequence()->code[offset] = (jumpSize >> 8) & 0xff;
+    currentSequence()->code[offset + 1] = jumpSize & 0xff;
+}   
+
+static void stepThrough () {
     parser.prev = parser.current;
 
     for (;;) {
@@ -294,6 +312,50 @@ static void printStatement () {
     byteEmitter(SIG_PRINT);
 }
 
+static int orStatement (int when) {
+    landJump(when);
+    byteEmitter(SIG_POP);
+
+    forceConsume(T_COMMA, "Expected ',' after 'or' statement.");
+    expression();
+    forceConsume(T_PARAM_END, "Expected ':' after conditional parameters.");
+
+    int jumper = jumpEmitter(SIG_OR);
+    byteEmitter(SIG_POP);
+
+    statement();
+
+    return jumper;
+}
+
+static void whenStatement () {
+    forceConsume(T_COMMA, "Expected ',' after 'when' statement.");
+    expression();
+    forceConsume(T_PARAM_END, "Expected ':' after conditional parameters.");
+
+    int whenJump = jumpEmitter(SIG_WHEN);
+    byteEmitter(SIG_POP);
+
+    statement();
+
+    while (match(T_OR)) {
+        int tempJump = orStatement(whenJump);
+        whenJump = tempJump;
+    }
+
+    int elseJump = jumpEmitter(SIG_ELSE);
+
+    landJump(whenJump);
+    byteEmitter(SIG_POP);
+
+    if (match(T_ELSE)) { 
+        forceConsume(T_PARAM_END, "Expected ':' after else.");
+        statement(); 
+    }
+
+    landJump(elseJump);
+}
+
 static void expressionStatement () {
     expression();
     forceConsume(T_PERIOD, "Expected '.' at the end of the expression.");
@@ -319,8 +381,9 @@ static void endScope () {
 }
 
 static void statement () {
-    if (match(T_LOG)) { printStatement(); } 
-    else if (match(T_OPEN)) {
+    if (match(T_LOG)) { printStatement(); } else 
+    if (match(T_WHEN)) { whenStatement(); } else
+    if (match(T_OPEN)) {
         beginScope();
         scope();
         endScope();

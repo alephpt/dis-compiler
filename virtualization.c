@@ -64,6 +64,9 @@ static Interpretation elucidate() {
     #define READ_INSTRUCTION() (*vm.instruction++)
     #define READ_VALUE() (vm.sequence->constants.values[READ_INSTRUCTION()])
     #define READ_STRING() AS_STRING(READ_VALUE())
+    #define READ_SHORT() \
+        (vm.instruction += 2, \
+        (uint16_t)((vm.instruction[-2] << 8) | vm.instruction[-1]))
     #define BINARY_OP(valueType, op) { \
         do { \
             if(!IS_NUMERAL(peek(0)) || !IS_NUMERAL(peek(1))) { \
@@ -212,6 +215,21 @@ static Interpretation elucidate() {
                 printf("\n");
                 break;
             }
+            case SIG_ELSE: {
+                uint16_t offset = READ_SHORT();
+                vm.instruction += offset;
+                break;
+            }
+            case SIG_OR: {
+                uint16_t offset = READ_SHORT();
+                if (isFalse(peek(0))) { vm.instruction += offset; }
+                break;
+            }
+            case SIG_WHEN: {
+                uint16_t offset = READ_SHORT();
+                if (isFalse(peek(0))) { vm.instruction += offset; }
+                break;
+            }
             case SIG_RETURN: {
                 #ifdef DEBUG_TRACE_EXECUTION
                 printf("\n");
@@ -229,6 +247,7 @@ static Interpretation elucidate() {
     #undef READ_INSTRUCTION
     #undef READ_VALUE
     #undef READ_STRING
+    #undef READ_SHORT
     #undef BINARY_OP
 }
 

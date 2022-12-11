@@ -12,6 +12,14 @@ static int instructByte (const char* name, Sequence* sequence, int offset) {
     return offset + 2;
 }
 
+static int instructJump (const char* name, int sign, Sequence* sequence, int offset) {
+    uint16_t jump = (uint16_t)(sequence->code[offset + 1] << 8);
+    jump |= sequence->code[offset + 2];
+    printf("%-16s %4d -> %d\n", name, offset, offset + 3 + sign * jump);
+
+    return offset + 3;
+}
+
 static int instructValue (const char* name, Sequence* sequence, int offset) {
     uint8_t value = sequence->code[offset + 1];
     printf("%-16s %4d   '", name, value);
@@ -106,6 +114,12 @@ int stripCommand (Sequence* seq, int offset) {
             return instruct("SIG_NEG", offset);
         case SIG_PRINT:
             return instruct("SIG_PRINT", offset);
+        case SIG_ELSE:
+            return instructJump("SIG_ELSE", 1, seq, offset);
+        case SIG_OR:
+            return instructJump("SIG_OR", 1, seq, offset);
+        case SIG_WHEN:
+            return instructJump("SIG_WHEN", 1, seq, offset);
         case SIG_RETURN:
             return instruct("SIG_RETURN", offset);
         default:
