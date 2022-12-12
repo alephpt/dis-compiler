@@ -173,14 +173,17 @@ static void err(Token* token, const char* message) {
 
     fprintf(stderr, " - %s\n", message);
     parser.erroneous = true;
+    return;
 }
 
-static void currentErr (const char* message) { err(&parser.current, message); }
-static void prevErr (const char* message) { err(&parser.prev, message); }
+static void currentErr (const char* message) { err(&parser.current, message); return; }
+static void prevErr (const char* message) { err(&parser.prev, message); return; }
 static ParseRule* getRule (TType type) { return &rules[type]; }
 static bool check (TType type) { return parser.current.type == type; }
-static void byteEmitter (uint8_t byte) { writeSequence(currentSequence(), byte, parser.prev.line); }
-static void emitBytes (uint8_t byte1, uint8_t byte2) { byteEmitter(byte1); byteEmitter(byte2); }
+static void byteEmitter (uint8_t byte) { writeSequence(currentSequence(), byte, parser.prev.line); return; }
+static void emitBytes (uint8_t byte1, uint8_t byte2) { byteEmitter(byte1); byteEmitter(byte2); return; }
+static void returnEmitter() { byteEmitter(SIG_RETURN); return; }
+static void closer() { returnEmitter(); return; }
 
 static uint8_t genValue (Value val) {
     int value = addValue(currentSequence(), val);
@@ -211,6 +214,7 @@ static void stepThrough () {
 
         currentErr(parser.current.start);
     }
+    return;
 }
 
 static bool match (TType type) {
@@ -230,7 +234,7 @@ static void forceConsume (TType t, const char* message) {
     return;
 }
 
-static void valueEmitter (Value value) { emitBytes(OP_VALUE, genValue(value)); }
+static void valueEmitter (Value value) { emitBytes(OP_VALUE, genValue(value)); return; }
 
 static int jumpEmitter (uint8_t signal) {
     byteEmitter(signal);
@@ -260,6 +264,7 @@ static void landJump (int offset) {
 
     currentSequence()->code[offset] = (jumpSize >> 8) & 0xff;
     currentSequence()->code[offset + 1] = jumpSize & 0xff;
+    return;
 }   
 
 static void rebase () {
@@ -284,6 +289,7 @@ static void rebase () {
 
         stepThrough();
     }
+    return;
 }
 
 static void precedence(Precedence precede) {
@@ -308,114 +314,6 @@ static void precedence(Precedence precede) {
     if (assignable && match(T_ASSIGN)) {
         prevErr("Invalid assignment target.");
     }
-}
-
-static void scope () {
-    while (!check(T_CLOSE) && !check(T_EOF)) {
-        declaration();
-    }
-
-    forceConsume(T_CLOSE, "Expected closing '^' at end of scope.");
-    return;
-}
-
-static void expression () {
-    precedence(P_ASSIGN);
-    return;
-}
-
-static void andComp(bool assignable) {
-    int jumpIfFalse = jumpEmitter(SIG_EXECUTE);
-    byteEmitter(SIG_POP);
-    precedence(P_AND);
-    landJump(jumpIfFalse);
-}
-
-static void orComp(bool assignable) {
-    int jumpIfFalse = jumpEmitter(SIG_EXECUTE);
-    int jumpIfTrue = jumpEmitter(SIG_JUMP);
-    landJump(jumpIfFalse);
-    byteEmitter(SIG_POP);
-    precedence(P_OR);
-    landJump(jumpIfTrue);
-}
-
-static void printStatement () {
-    // printf("passed Print\n");
-    forceConsume(T_EXECUTE, "Expected '->' after 'log'.");
-    expression();
-    forceConsume(T_PERIOD, "Expected '.' after log expression.");
-    byteEmitter(SIG_PRINT);
-    return;
-}
-
-static int orStatement (int when) {
-    landJump(when);
-    byteEmitter(SIG_POP);
-
-    forceConsume(T_COMMA, "Expected ',' after 'or'.");
-    expression();
-    forceConsume(T_PARAM_END, "Expected ':' after conditional 'or' expression.");
-
-    int jumper = jumpEmitter(SIG_EXECUTE);
-    byteEmitter(SIG_POP);
-
-    statement();
-
-    return jumper;
-}
-
-static void whenStatement () {
-    forceConsume(T_COMMA, "Expected ',' after 'when'.");
-    expression();
-    forceConsume(T_PARAM_END, "Expected ':' after conditional 'when' expression.");
-
-    int jumpIfFalse = jumpEmitter(SIG_EXECUTE);
-    byteEmitter(SIG_POP);
-
-    statement();
-
-    while (match(T_OR)) {
-        int jumpStatus = orStatement(jumpIfFalse);
-        jumpIfFalse = jumpStatus;
-    }
-
-    int elseJump = jumpEmitter(SIG_JUMP);
-
-    landJump(jumpIfFalse);
-    byteEmitter(SIG_POP);
-
-    if (match(T_ELSE)) { 
-        forceConsume(T_PARAM_END, "Expected ':' after 'else'.");
-        statement(); 
-    }
-
-    landJump(elseJump);
-    return;
-}
-
-static void whileStatement () {
-    int loopStart = currentSequence()->inventory;
-
-    forceConsume(T_COMMA, "Expected ',' after 'while'.");
-    expression();
-    forceConsume(T_PARAM_END, "Expected ':' after conditional 'while' expression.");
-
-    int exitIfFalse = jumpEmitter(SIG_EXECUTE);
-    byteEmitter(SIG_POP);
-
-    statement();
-    loopEmitter(loopStart);
-
-    landJump(exitIfFalse);
-    byteEmitter(SIG_POP);
-    return;
-}
-
-static void expressionStatement () {
-    expression();
-    forceConsume(T_PERIOD, "Expected '.' at the end of the expression.");
-    byteEmitter(SIG_POP);
     return;
 }
 
@@ -429,27 +327,35 @@ static void endScope () {
 
     while (current->localCount > 0 &&
            current->locals[current->localCount - 1].scope > current->localScope) {
-            byteEmitter(SIG_POP);
-            current->localCount--;
+        byteEmitter(SIG_POP);
+        current->localCount--;
     }
 
     return;
 }
 
-static void statement () {
-    if (match(T_LOG)) { printStatement(); } else 
-    if (match(T_AS)) { asStatement(); } else
-    if (match(T_WHEN)) { whenStatement(); } else
-    if (match(T_WHILE)) { whileStatement(); } else
-    if (match(T_OPEN)) {
-        beginScope();
-        scope();
-        endScope();
+static void scope () {
+    while (!check(T_CLOSE) && !check(T_EOF)) {
+        declaration();
     }
-    else { expressionStatement(); }
+
+    forceConsume(T_CLOSE, "Expected closing '^' at end of scope.");
     return;
 }
 
+static void initializeDefinition () {
+    current->locals[current->localCount - 1].scope = current->localScope;
+    return;
+}
+
+static void defineVariable (uint8_t variable) {
+    if (current->localScope > 0) {
+        initializeDefinition();
+        return;
+    }
+    // TODO: implement check for global keyword and resort
+    emitBytes(OP_GLOBAL, variable);
+}
 
 static void defineLocal (Token name) {
     if (current->localCount == UINT8_COUNT) {
@@ -460,11 +366,11 @@ static void defineLocal (Token name) {
     LocalT* local = &current->locals[current->localCount++];
     local->name = name;
     local->scope = -1;
+    return;
 }
 
 
 static void declareDefinition () {
-    // printf("current.localScope = %d\n", current->localScope);
     if (current->localScope == 0) { return; }
 
     Token* name = &parser.prev;
@@ -487,28 +393,171 @@ static void declareDefinition () {
 
 static uint8_t parseDefinition (const char* message) {
     forceConsume(T_ID, message);
-
-    // printf("consumed Identifier\n");
-
+    
     declareDefinition();
-    // printf("passed declaration\n");
     if (current->localScope > 0) { return 0; }
-
-    // printf("returning ID in parse\n");
+    
     return identifier(&parser.prev);
 }
 
-static void initializeDefinition () {
-    current->locals[current->localCount - 1].scope = current->localScope;
+static void expression () {
+    precedence(P_ASSIGN);
+    return;
 }
 
-static void defineVariable (uint8_t variable) {
-    if (current->localScope > 0) {
-        initializeDefinition();
-        return;
+static void andComp(bool assignable) {
+    int jumpIfFalse = jumpEmitter(SIG_EXECUTE);
+    byteEmitter(SIG_POP);
+    precedence(P_AND);
+    landJump(jumpIfFalse);
+    return;
+}
+
+static void orComp(bool assignable) {
+    int jumpIfFalse = jumpEmitter(SIG_EXECUTE);
+    int jumpIfTrue = jumpEmitter(SIG_JUMP);
+    landJump(jumpIfFalse);
+    byteEmitter(SIG_POP);
+    precedence(P_OR);
+    landJump(jumpIfTrue);
+    return;
+}
+
+static void expressionStatement () {
+    expression();
+    forceConsume(T_PERIOD, "Expected '.' at the end of the expression.");
+    byteEmitter(SIG_POP);
+    return;
+}
+
+static void printStatement () {
+    forceConsume(T_EXECUTE, "Expected '->' after 'log'.");
+    expression();
+    forceConsume(T_PERIOD, "Expected '.' after log expression.");
+    byteEmitter(SIG_PRINT);
+    return;
+}
+
+static void asStatement () {
+    beginScope();
+    forceConsume(T_COMMA, "Expected ',' after 'as'.");
+
+    if (match(T_L_PAR)) {
+        // No initializer
+    } else
+    if (match(T_DEFINE)) {
+        declareDefinition();
+    } else {
+        expressionStatement();
     }
-    // TODO: implement check for global keyword and resort
-    emitBytes(OP_GLOBAL, variable);
+
+    int loopStart = currentSequence()->inventory;
+    int exitJump = -1;
+
+    if (!match(T_R_PAR)) {
+        int bodyJump = jumpEmitter(SIG_JUMP);
+        int start = currentSequence()->inventory;
+
+        expression();
+        byteEmitter(SIG_POP);
+
+        forceConsume(T_R_PAR, "Expected ')' after 'as' clauses.");
+
+        loopEmitter(loopStart);
+        loopStart = start;
+        landJump(bodyJump);
+
+
+
+    }
+
+    if (!match(T_PARAM_END)) {
+        expression();
+        forceConsume(T_PARAM_END, "Expected ':' in 'as' loop.");
+        exitJump = jumpEmitter(SIG_EXECUTE);
+        byteEmitter(SIG_POP);
+    }
+
+    statement();
+    loopEmitter(loopStart);
+
+    if (exitJump != -1) {
+        landJump(exitJump);
+        byteEmitter(SIG_POP);
+    }
+
+    endScope();
+    return;
+}
+
+static int orStatement (int when) {
+    landJump(when);
+    byteEmitter(SIG_POP);
+    endScope();
+
+    beginScope();
+    forceConsume(T_COMMA, "Expected ',' after 'or'.");
+    expression();
+    forceConsume(T_PARAM_END, "Expected ':' after conditional 'or' expression.");
+
+    int jumper = jumpEmitter(SIG_EXECUTE);
+    byteEmitter(SIG_POP);
+
+    statement();
+
+    return jumper;
+}
+
+static void whenStatement () {
+    beginScope();
+    forceConsume(T_COMMA, "Expected ',' after 'when'.");
+    expression();
+    forceConsume(T_PARAM_END, "Expected ':' after conditional 'when' expression.");
+
+    int jumpIfFalse = jumpEmitter(SIG_EXECUTE);
+    byteEmitter(SIG_POP);
+
+    statement();
+
+    while (match(T_OR)) {
+        int jumpStatus = orStatement(jumpIfFalse);
+        jumpIfFalse = jumpStatus;
+    }
+
+    int elseJump = jumpEmitter(SIG_JUMP);
+
+    landJump(jumpIfFalse);
+    byteEmitter(SIG_POP);
+    endScope();
+
+    if (match(T_ELSE)) { 
+        beginScope();
+        forceConsume(T_PARAM_END, "Expected ':' after 'else'.");
+        statement(); 
+        endScope();
+    }
+
+    landJump(elseJump);
+    return;
+}
+
+static void whileStatement () {
+    int loopStart = currentSequence()->inventory;
+    beginScope();
+    forceConsume(T_COMMA, "Expected ',' after 'while'.");
+    expression();
+    forceConsume(T_PARAM_END, "Expected ':' after conditional 'while' expression.");
+
+    int exitIfFalse = jumpEmitter(SIG_EXECUTE);
+    byteEmitter(SIG_POP);
+
+    statement();
+    loopEmitter(loopStart);
+
+    landJump(exitIfFalse);
+    byteEmitter(SIG_POP);
+    endScope();
+    return;
 }
 
 static void definition () {
@@ -527,16 +576,25 @@ static void definition () {
     return;
 }
  
-static void declaration () {
-    if (match(T_DEFINE)) {
-        definition();
-    } else {
-        // printf("hit statement in declaration\n");
-        statement();
+static void statement () {
+    if (match(T_LOG)) { printStatement(); } else 
+    if (match(T_AS)) { asStatement(); } else
+    if (match(T_WHEN)) { whenStatement(); } else
+    if (match(T_WHILE)) { whileStatement(); } else
+    if (match(T_OPEN)) {
+        beginScope();
+        scope();
+        endScope();
     }
+    else { expressionStatement(); }
+    return;
+}
+
+static void declaration () {
+    if (match(T_DEFINE)) { definition(); } 
+    else { statement(); }
 
     if (parser.panic) { rebase(); }
-
     return;
 }
 
@@ -564,6 +622,7 @@ static void string (bool assignable) {
 static void grouping (bool assignable) {
     expression();
     forceConsume(T_R_PAR, "Expected ')' at end of expression.");
+    return;
 }
 
 static void unary (bool assignable) {
@@ -580,26 +639,21 @@ static void unary (bool assignable) {
 }
 
 static int findLocality(Compiler* c, Token* name) {
-    // printf("hit locality ct: %d\n", c->localCount);
     for (int i = c->localCount - 1; i >= 0; i--) {
-        // printf("i: %d\n", i);
         LocalT* local = &c->locals[i];
 
         if (identifiersMatch(name, &local->name)) { 
             if (local->scope == -1) {
                 prevErr("Can't read local variable in it's own initializer.");
             }
-            // printf("identifiersMatch - returning i: %d\n", i);
             return i;
         }
     }
-    // printf("returning  from locality");
     return -1;
 }
 
 static void variableName (Token name, bool assignable) {
     uint8_t sigAssign, sigReturn;
-    // printf("hit variableName\n");
     int var = findLocality(current, &name); 
     
     if (var != -1) {
@@ -620,7 +674,6 @@ static void variableName (Token name, bool assignable) {
 }
 
 static void variable (bool assignable) {
-    // printf("hit variable\n");
     variableName(parser.prev, assignable);
 }
 
@@ -645,8 +698,6 @@ static void binary () {
     return;
 }
 
-static void returnEmitter() { byteEmitter(SIG_RETURN); return; }
-static void closer() { returnEmitter(); return; }
 
 bool compile(const char* source, Sequence* sequence) {
     Compiler compiler;
