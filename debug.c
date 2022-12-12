@@ -114,12 +114,12 @@ int stripCommand (Sequence* seq, int offset) {
             return instruct("SIG_NEG", offset);
         case SIG_PRINT:
             return instruct("SIG_PRINT", offset);
-        case SIG_ELSE:
-            return instructJump("SIG_ELSE", 1, seq, offset);
-        case SIG_OR:
-            return instructJump("SIG_OR", 1, seq, offset);
-        case SIG_WHEN:
-            return instructJump("SIG_WHEN", 1, seq, offset);
+        case SIG_JUMP:
+            return instructJump("SIG_JUMP", 1, seq, offset);
+        case SIG_EXECUTE:
+            return instructJump("SIG_EXECUTE", 1, seq, offset);
+        case SIG_LOOP:
+            return instructJump("SIG_LOOP", -1, seq, offset);
         case SIG_RETURN:
             return instruct("SIG_RETURN", offset);
         default:

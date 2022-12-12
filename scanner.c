@@ -191,8 +191,14 @@ static Token numeral (char n) {
     return genToken(T_DECIMAL);
 }
 
-static Token string() {
-    while (peek() != '"' && !ended()) {
+static Token string(bool singleQ) {
+    char comp;
+    if (singleQ) {
+        comp = '\'';
+    } else {
+        comp = '"';
+    }
+    while (peek() != comp && !ended()) {
         if (peekNext() == '\n') { 
             if (peek() == '\\') {
                 read_c();
@@ -288,7 +294,11 @@ Token scanToken () {
         case '=': return genToken( match('=') ? T_EQEQ : T_EQ );
         case '<': return genToken( match('=') ? T_LTOE : match('-') ? T_ASSIGN : T_LESSER );
         case '>': return genToken( match('=') ? T_GTOE : T_GREATER );
-        case '"': return string();
+        case '@': return genToken(T_REF);
+        case '&': return genToken( match('&') ? T_AND_OP : T_DEREF );
+        case '|': return genToken( match('|') ? T_OR_OP : T_BITWISE );
+        case '\'': return string(true);
+        case '"': return string(false);
     }
 
     return errToken("Unidentified character.");

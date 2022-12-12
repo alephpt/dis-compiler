@@ -215,19 +215,19 @@ static Interpretation elucidate() {
                 printf("\n");
                 break;
             }
-            case SIG_ELSE: {
+            case SIG_JUMP: {
                 uint16_t offset = READ_SHORT();
                 vm.instruction += offset;
                 break;
             }
-            case SIG_OR: {
+            case SIG_EXECUTE: {
                 uint16_t offset = READ_SHORT();
                 if (isFalse(peek(0))) { vm.instruction += offset; }
                 break;
             }
-            case SIG_WHEN: {
+            case SIG_LOOP: {
                 uint16_t offset = READ_SHORT();
-                if (isFalse(peek(0))) { vm.instruction += offset; }
+                vm.instruction -= offset;
                 break;
             }
             case SIG_RETURN: {
