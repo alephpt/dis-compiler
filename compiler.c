@@ -482,7 +482,7 @@ static void asStatement () {
     forceConsume(T_COMMA, "Expected ',' after 'as'.");
 
     // define/declare variable
-    if (match(T_L_BRACK)) {
+    if (match(T_L_PAR)) {
         // nothing
     } else if (match(T_DEFINE)) {
         var = parser.current;
