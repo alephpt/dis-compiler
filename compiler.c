@@ -292,7 +292,7 @@ static void rebase () {
     return;
 }
 
-static void precedence(Precedence precede) {
+static void precedence (Precedence precede) {
     stepThrough();
 
     PType prefix = getRule(parser.prev.type)->prefix;
@@ -341,6 +341,41 @@ static void scope () {
 
     forceConsume(T_CLOSE, "Expected closing '^' at end of scope.");
     return;
+}
+
+static int findLocality(Compiler* c, Token* name) {
+    for (int i = c->localCount - 1; i >= 0; i--) {
+        LocalT* local = &c->locals[i];
+
+        if (identifiersMatch(name, &local->name)) { 
+            if (local->scope == -1) {
+                prevErr("Can't read local variable in it's own initializer.");
+            }
+            return i;
+        }
+    }
+    return -1;
+}
+
+static void variableName (Token name, bool assignable) {
+    uint8_t sigAssign, sigReturn;
+    int var = findLocality(current, &name); 
+    
+    if (var != -1) {
+        sigReturn = SIG_LOCAL_RETURN;
+        sigAssign = SIG_LOCAL_ASSIGN;
+    } else {
+        var = identifier(&name);
+        sigReturn = SIG_GLOBAL_RETURN;
+        sigAssign = SIG_GLOBAL_ASSIGN;
+    }
+
+    if (assignable && match(T_ASSIGN)) {
+        expression();
+        emitBytes(sigAssign, (uint8_t)var);
+    } else {
+        emitBytes(sigReturn, (uint8_t)var);
+    }
 }
 
 static void initializeDefinition () {
@@ -438,51 +473,61 @@ static void printStatement () {
     return;
 }
 
+static void definition();
+
 static void asStatement () {
+    int exitLoop = -1;
+    Token var;
     beginScope();
     forceConsume(T_COMMA, "Expected ',' after 'as'.");
 
-    if (match(T_L_PAR)) {
-        // No initializer
-    } else
-    if (match(T_DEFINE)) {
-        declareDefinition();
+    // define/declare variable
+    if (match(T_L_BRACK)) {
+        // nothing
+    } else if (match(T_DEFINE)) {
+        var = parser.current;
+        definition();
+        forceConsume(T_L_PAR, "Expected '[' before 'as' iterator.");
     } else {
+        var = parser.current;
         expressionStatement();
+        forceConsume(T_L_PAR, "Expected '[' before 'as' iterator.");
     }
 
-    int loopStart = currentSequence()->inventory;
-    int exitJump = -1;
+    int beginLoop = currentSequence()->inventory;
 
     if (!match(T_R_PAR)) {
         int bodyJump = jumpEmitter(SIG_JUMP);
-        int start = currentSequence()->inventory;
+        int increment = currentSequence()->inventory;
 
+        // determine iterator
         expression();
         byteEmitter(SIG_POP);
+        
+        forceConsume(T_R_PAR, "Expected ']' after 'as' iterator.");
 
-        forceConsume(T_R_PAR, "Expected ')' after 'as' clauses.");
-
-        loopEmitter(loopStart);
-        loopStart = start;
+        loopEmitter(beginLoop);
+        beginLoop = increment;
         landJump(bodyJump);
-
-
-
     }
 
+    // check comparisons
     if (!match(T_PARAM_END)) {
+        // expression
         expression();
-        forceConsume(T_PARAM_END, "Expected ':' in 'as' loop.");
-        exitJump = jumpEmitter(SIG_EXECUTE);
+        forceConsume(T_PARAM_END, "Expected ':' after 'as' conditions.");
+        exitLoop = jumpEmitter(SIG_EXECUTE);
         byteEmitter(SIG_POP);
     }
 
+    
+    // execute body
     statement();
-    loopEmitter(loopStart);
 
-    if (exitJump != -1) {
-        landJump(exitJump);
+    loopEmitter(beginLoop);
+
+    if (exitLoop != -1) {
+        landJump(exitLoop);
         byteEmitter(SIG_POP);
     }
 
@@ -638,46 +683,11 @@ static void unary (bool assignable) {
     return;
 }
 
-static int findLocality(Compiler* c, Token* name) {
-    for (int i = c->localCount - 1; i >= 0; i--) {
-        LocalT* local = &c->locals[i];
-
-        if (identifiersMatch(name, &local->name)) { 
-            if (local->scope == -1) {
-                prevErr("Can't read local variable in it's own initializer.");
-            }
-            return i;
-        }
-    }
-    return -1;
-}
-
-static void variableName (Token name, bool assignable) {
-    uint8_t sigAssign, sigReturn;
-    int var = findLocality(current, &name); 
-    
-    if (var != -1) {
-        sigReturn = SIG_LOCAL_RETURN;
-        sigAssign = SIG_LOCAL_ASSIGN;
-    } else {
-        var = identifier(&name);
-        sigReturn = SIG_GLOBAL_RETURN;
-        sigAssign = SIG_GLOBAL_ASSIGN;
-    }
-
-    if (assignable && match(T_ASSIGN)) {
-        expression();
-        emitBytes(sigAssign, (uint8_t)var);
-    } else {
-        emitBytes(sigReturn, (uint8_t)var);
-    }
-}
-
 static void variable (bool assignable) {
     variableName(parser.prev, assignable);
 }
 
-static void binary () {
+static void binary (bool assignable) {
     TType opType = parser.prev.type;
     ParseRule* rule = getRule(opType);
     precedence((Precedence)(rule->precedence + 1));
