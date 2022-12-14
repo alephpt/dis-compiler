@@ -46,7 +46,8 @@ typedef enum {
     TYPE_OPERATION
 } OperationT;
 
-typedef struct {
+typedef struct Compiler {
+    struct Compiler* enclosing;
     OOperation* operation;
     OperationT type;
     LocalT locals[UINT8_COUNT];
@@ -55,10 +56,10 @@ typedef struct {
 } Compiler;
 
 Parser parser;
-Sequence* compilingSequence;
 Compiler* current = NULL;
 static void expression();
 static void declaration();
+static void definition();
 static void statement();
 static ParseRule* getRule(TType type);
 static void precedence(Precedence precede);
@@ -157,12 +158,17 @@ ParseRule rules[] = {
 };
 
 static void initCompiler (Compiler* compiler, OperationT type) {
+    compiler->enclosing = current;
     compiler->operation = NULL;
     compiler->type = type;
     compiler->localCount = 0;
     compiler->localScope = 0;
     compiler->operation = newOperation();
     current = compiler;
+    
+    if (type != TYPE_SCRIPT) {
+        current->operation->name = copyString(parser.prev.start, parser.prev.length);
+    }
 
     LocalT* local = &current->locals[current->localCount++];
     local->scope = 0;
@@ -209,6 +215,8 @@ static OOperation* closeCompilation() {
     }
     #endif
 
+    current = current->enclosing;
+    
     return op; 
 }
 
@@ -406,6 +414,7 @@ static void variableName (Token name, bool assignable) {
 }
 
 static void initializeDefinition () {
+    if (current->localScope == 0) return;
     current->locals[current->localCount - 1].scope = current->localScope;
     return;
 }
@@ -462,6 +471,43 @@ static uint8_t parseDefinition (const char* message) {
     return identifier(&parser.prev);
 }
 
+static void operate (OperationT type) {
+    Compiler compile;
+    initCompiler(&compile, type);
+    beginScope();
+
+    forceConsume(T_ASSIGN, "Expected '<-' after operation name.");
+
+    if (!check(T_PARAM_END)) {
+        do {
+            current->operation->arity++;
+
+            if (current->operation->arity > 255) {
+                currentErr("You cannot have more than 255 variables. Try rethinking your implementation.");
+            }
+
+            uint8_t constant = parseDefinition("Expected a parameer name.");
+            defineVariable(constant);
+        } while (match(T_COMMA));
+    }
+
+    forceConsume(T_PARAM_END, "Expected ':' after parementers.");
+    forceConsume(T_OPEN, "Expected '$' before operation body.");
+    scope();
+
+    OOperation* op = closeCompilation();
+    emitBytes(OP_VALUE, genValue(OBJECT_VALUE(op)));
+    return;
+}
+
+static void operation () {
+    uint8_t global = parseDefinition("Expected operation name.");
+    initializeDefinition();
+    operate(TYPE_OPERATION);
+    defineVariable(global);
+    return;
+}
+
 static void expression () {
     precedence(P_ASSIGN);
     return;
@@ -499,8 +545,6 @@ static void printStatement () {
     byteEmitter(SIG_PRINT);
     return;
 }
-
-static void definition();
 
 static void asStatement () {
     int exitLoop = -1;
@@ -665,6 +709,7 @@ static void statement () {
 }
 
 static void declaration () {
+    if (match(T_OP)) { operation(); } else
     if (match(T_DEFINE)) { definition(); } 
     else { statement(); }
 
@@ -738,14 +783,12 @@ static void binary (bool assignable) {
 }
 
 
-OOperation* compile(const char* source, Sequence* sequence) {
+OOperation* compile(const char* source) {
     Compiler compiler;
     int line = -1;
 
     initScanner(source);
     initCompiler(&compiler, TYPE_SCRIPT);
-
-    compilingSequence = sequence;
 
     parser.erroneous = false;
     parser.panic = false;

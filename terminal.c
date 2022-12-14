@@ -16,8 +16,9 @@ void repl() {
             printf("\n", line);
             break;
         }
-
+        #ifdef DEBUG_TRACE_EXECUTION    
         printf("\n");// %s", line);
+        #endif
         interpret(line);
     }
 

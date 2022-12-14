@@ -11,13 +11,13 @@
 
 Virtualizer vm;
 
-static void resetStack () { vm.stackHead = vm.stack; }
+static void resetStack () { vm.stackHead = vm.stack; vm.frameCount = 0; }
 void push (Value value) { *vm.stackHead = value; vm.stackHead++; }
 Value pop () { vm.stackHead--; return *vm.stackHead; }
 static Value peek (int dist) { return vm.stackHead[-1 - dist]; }
-static bool isFalse(Value value) { return IS_NONE(value) || (IS_BOOLEAN(value) && !AS_BOOLEAN(value)); }
+static bool isFalse (Value value) { return IS_NONE(value) || (IS_BOOLEAN(value) && !AS_BOOLEAN(value)); }
 
-static void concatenation() {
+static void concatenation () {
     OString* latter = AS_STRING(pop());
     OString* prior = AS_STRING(pop());
 
@@ -39,8 +39,10 @@ static void runtimeErr(const char* format, ...) {
     va_end(args);
     fputs("\n", stderr);
 
-    size_t instruct = vm.instruction - vm.sequence->code - 1;
-    int line = vm.sequence->line[instruct];
+    CallFrame* frame = &vm.frames[vm.frameCount - 1];
+    size_t instruct = frame->instruction - frame->operation->sequence.code - 1;
+    int line = frame->operation->sequence.line[instruct];
+
     fprintf(stderr, "[line %d] in script\n", line);
     resetStack;
 }
@@ -60,13 +62,15 @@ void freeVM () {
     return;
 }
 
-static Interpretation elucidate() {
-    #define READ_INSTRUCTION() (*vm.instruction++)
-    #define READ_VALUE() (vm.sequence->constants.values[READ_INSTRUCTION()])
+static Interpretation elucidate () {
+    CallFrame* frame = &vm.frames[vm.frameCount - 1];
+
+    #define READ_INSTRUCTION() (*frame->instruction++)
+    #define READ_VALUE() (frame->operation->sequence.constants.values[READ_INSTRUCTION()])
     #define READ_STRING() AS_STRING(READ_VALUE())
     #define READ_SHORT() \
-        (vm.instruction += 2, \
-        (uint16_t)((vm.instruction[-2] << 8) | vm.instruction[-1]))
+        (frame->instruction += 2, \
+        (uint16_t)((frame->instruction[-2] << 8) | frame->instruction[-1]))
     #define BINARY_OP(valueType, op) { \
         do { \
             if(!IS_NUMERAL(peek(0)) || !IS_NUMERAL(peek(1))) { \
@@ -105,7 +109,8 @@ static Interpretation elucidate() {
             printf("\033[0m");        
         }
 
-        stripCommand(vm.sequence, offset);
+        stripCommand(&frame->operation->sequence, 
+                (int)(frame->instruction - frame->operation->sequence.code));
         #endif
 
         uint8_t instructor;
@@ -121,12 +126,12 @@ static Interpretation elucidate() {
             case SIG_POP: pop(); break;
             case SIG_LOCAL_RETURN: {
                 uint8_t local = READ_INSTRUCTION();
-                push(vm.stack[local]);
+                push(frame->slot[local]);
                 break;
             }
             case SIG_LOCAL_ASSIGN: {
                 uint8_t local = READ_INSTRUCTION();
-                vm.stack[local] = peek(0);
+                frame->slot[local] = peek(0);
                 break;
             }
             case SIG_GLOBAL_RETURN: {
@@ -217,12 +222,12 @@ static Interpretation elucidate() {
             }
             case SIG_JUMP: {
                 uint16_t offset = READ_SHORT();
-                vm.instruction += offset;
+                frame->instruction += offset;
                 break;
             }
             case SIG_EXECUTE: {
                 uint16_t offset = READ_SHORT();
-                if (isFalse(peek(0))) { vm.instruction += offset; }
+                if (isFalse(peek(0))) { frame->instruction += offset; }
                 break;
             }
             case SIG_LOOP: {
@@ -252,21 +257,15 @@ static Interpretation elucidate() {
 }
 
 Interpretation interpret (const char* source) {
-    Sequence sequence;
-    initSequence(&sequence);
+    OOperation* op = compile(source);
 
-    if (!compile(source, &sequence))
-    {
-        freeSequence(&sequence);
-        return COMPILE_ERROR;
-    }
+    if (op == NULL) { return COMPILE_ERROR; }
 
-    vm.sequence = &sequence;
-    vm.instruction = vm.sequence->code;
+    push(OBJECT_VALUE(op));
+    CallFrame* frame = &vm.frames[vm.frameCount++];
+    frame->operation = op;
+    frame->instruction = op->sequence.code;
+    frame->slot = vm.stack;
 
-    Interpretation connotation = elucidate();
-
-    freeSequence(&sequence);
-
-    return connotation;
+    return elucidate();
 }
