@@ -4,6 +4,6 @@
 #include "object.h"
 #include "virtualization.h"
 
-bool compile(const char* source, Sequence* sequence);
+OOperation* compile(const char* source, Sequence* sequence);
 
 #endif

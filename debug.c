@@ -49,7 +49,8 @@ int stripCommand (Sequence* seq, int offset) {
             seq->code[offset] == SIG_DIV ||
             seq->code[offset] == SIG_ADD ||
             seq->code[offset] == SIG_MULT ||
-            seq->code[offset] == SIG_SUB
+            seq->code[offset] == SIG_SUB ||
+            seq->code[offset] == SIG_POP
             ) {
             printf("\033[90m");
             printf("   ╠─── ");

@@ -19,6 +19,8 @@ static Obj* allocateObject (size_t size, ObjectT type) {
 }
 
 
+// STRING STUFF //
+
 static OString* allocateString (char* chars, int len, uint32_t hash) {
     OString* string = ALLOCATE_OBJECT(OString, O_STRING);
     string->length = len;
@@ -65,10 +67,36 @@ OString* copyString (const char* chars, int len) {
     return allocateString(heapChars, len, hash);
 }
 
+
+ // FUNCTION STUFF //
+
+ OOperation* newOperation () {
+    OOperation* op = ALLOCATE_OBJECT (OOperation, O_OPERATION);
+    op->arity = 0;
+    op->name = NULL;
+    initSequence(&op->sequence);
+    return op;
+ }
+
+static void printOperation (OOperation* op) {
+    if (op->name == NULL) {
+        printf("<script>");
+        return;
+    }
+
+    printf("<op %s>", op->name->chars);
+    return;
+}
+
 void printObject (Value value) {
     switch (OBJECT_TYPE(value)) {
+        case O_OPERATION: {
+            printOperation(AS_OPERATION(value));
+            break;
+        }
         case O_STRING:
             printf("%s", AS_CSTRING(value));
             break;
     }
+    return;
 }

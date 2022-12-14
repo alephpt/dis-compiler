@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include "debug.h"
 #include "header.h"
 #include "compiler.h"
 #include "scanner.h"
@@ -40,15 +41,22 @@ typedef struct {
     int scope;
 } LocalT;
 
+typedef enum {
+    TYPE_SCRIPT,
+    TYPE_OPERATION
+} OperationT;
+
 typedef struct {
+    OOperation* operation;
+    OperationT type;
     LocalT locals[UINT8_COUNT];
     int localCount;
     int localScope;
 } Compiler;
 
 Parser parser;
-Compiler* current = NULL;
 Sequence* compilingSequence;
+Compiler* current = NULL;
 static void expression();
 static void declaration();
 static void statement();
@@ -148,12 +156,18 @@ ParseRule rules[] = {
     [T_EQ]                =            {NULL,          NULL,       P_NONE}
 };
 
-static Sequence* currentSequence() { return compilingSequence; }
-
-static void initCompiler (Compiler* compiler) {
+static void initCompiler (Compiler* compiler, OperationT type) {
+    compiler->operation = NULL;
+    compiler->type = type;
     compiler->localCount = 0;
     compiler->localScope = 0;
+    compiler->operation = newOperation();
     current = compiler;
+
+    LocalT* local = &current->locals[current->localCount++];
+    local->scope = 0;
+    local->name.start = "";
+    local->name.length = 0;
     return;
 }
 
@@ -176,6 +190,7 @@ static void err(Token* token, const char* message) {
     return;
 }
 
+static Sequence* currentSequence() { return &current->operation->sequence; }
 static void currentErr (const char* message) { err(&parser.current, message); return; }
 static void prevErr (const char* message) { err(&parser.prev, message); return; }
 static ParseRule* getRule (TType type) { return &rules[type]; }
@@ -183,7 +198,19 @@ static bool check (TType type) { return parser.current.type == type; }
 static void byteEmitter (uint8_t byte) { writeSequence(currentSequence(), byte, parser.prev.line); return; }
 static void emitBytes (uint8_t byte1, uint8_t byte2) { byteEmitter(byte1); byteEmitter(byte2); return; }
 static void returnEmitter() { byteEmitter(SIG_RETURN); return; }
-static void closer() { returnEmitter(); return; }
+
+static OOperation* closeCompilation() { 
+    returnEmitter();
+    OOperation* op = current->operation;
+
+    #ifdef DEBUG_PRINT_CODE
+    if (!parser.erroneous) {
+        stripSequence(currentSequence(), op->name != NULL ? op->name->chars : "<script>");
+    }
+    #endif
+
+    return op; 
+}
 
 static uint8_t genValue (Value val) {
     int value = addValue(currentSequence(), val);
@@ -477,6 +504,8 @@ static void definition();
 
 static void asStatement () {
     int exitLoop = -1;
+    int increment = -1;
+    int bodyJump = -1;
     Token var;
     beginScope();
     forceConsume(T_COMMA, "Expected ',' after 'as'.");
@@ -497,8 +526,8 @@ static void asStatement () {
     int beginLoop = currentSequence()->inventory;
 
     if (!match(T_R_PAR)) {
-        int bodyJump = jumpEmitter(SIG_JUMP);
-        int increment = currentSequence()->inventory;
+        bodyJump = jumpEmitter(SIG_JUMP);
+        increment = currentSequence()->inventory;
 
         // determine iterator
         expression();
@@ -506,9 +535,7 @@ static void asStatement () {
         
         forceConsume(T_R_PAR, "Expected ']' after 'as' iterator.");
 
-        loopEmitter(beginLoop);
-        beginLoop = increment;
-        landJump(bodyJump);
+
     }
 
     // check comparisons
@@ -517,6 +544,8 @@ static void asStatement () {
         expression();
         forceConsume(T_PARAM_END, "Expected ':' after 'as' conditions.");
         exitLoop = jumpEmitter(SIG_EXECUTE);
+        beginLoop = increment;
+        landJump(bodyJump);
         byteEmitter(SIG_POP);
     }
 
@@ -709,12 +738,12 @@ static void binary (bool assignable) {
 }
 
 
-bool compile(const char* source, Sequence* sequence) {
+OOperation* compile(const char* source, Sequence* sequence) {
     Compiler compiler;
     int line = -1;
 
     initScanner(source);
-    initCompiler(&compiler);
+    initCompiler(&compiler, TYPE_SCRIPT);
 
     compilingSequence = sequence;
 
@@ -727,6 +756,6 @@ bool compile(const char* source, Sequence* sequence) {
         declaration();
     }
  
-    closer();
-    return !parser.erroneous;
+    OOperation* operation = closeCompilation();
+    return parser.erroneous ? NULL : operation;
 }
