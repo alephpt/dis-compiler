@@ -547,7 +547,6 @@ static void printStatement () {
 }
 
 static void asStatement () {
-    int exitLoop = -1;
     int increment = -1;
     int bodyJump = -1;
     int variable;
@@ -555,55 +554,53 @@ static void asStatement () {
     beginScope();
     forceConsume(T_COMMA, "Expected ',' after 'as'.");
 
-    // define/declare variable
     if (match(T_DEFINE)) {
         var = &parser.current;
         variable = parseDefinition("Initializer required for 'as' clause.");
-        defineVariable(variable);
+        //defineVariable(variable);
         forceConsume(T_ASSIGN, "Expected '<-' after 'as' initializer definition.");
         declaration();
         forceConsume(T_L_PAR, "Expected '[' before 'as' iterator.");
     } else {
         var = &parser.current;
         variable = parseDefinition("Initializer required for 'as' clause.");
-        defineVariable(variable);
+        //defineVariable(variable);
         forceConsume(T_PERIOD, "Expected '.' after as initializer.");
         forceConsume(T_L_PAR, "Expected '(' before 'as' iterator.");
     }
 
-    int beginLoop = currentSequence()->inventory;
-    
-    // iterator
+    int loopStart = currentSequence()->inventory;
+    int exitJump = -1;
+
     if (!match(T_R_PAR)) {
-        bodyJump = jumpEmitter(SIG_JUMP);
-        increment = currentSequence()->inventory;
+        int bodyJump = jumpEmitter(SIG_JUMP);
+        int start = currentSequence()->inventory;
+
         variableName(*var, true);
         expression();
         byteEmitter(SIG_POP);
-        
-        forceConsume(T_R_PAR, "Expected ')' after 'as' iterator.");
-        beginLoop = increment;
-    }
 
-    // check comparisons
-    if (!match(T_PARAM_END)) {
-        variableName(*var, false);
-        stepThrough();
-        binary(false);
-        forceConsume(T_PARAM_END, "Expected ':' after 'as' conditions.");
-        exitLoop = jumpEmitter(SIG_EXECUTE);
-        byteEmitter(SIG_POP);
+        forceConsume(T_R_PAR, "Expected ')' after 'as' clauses.");
 
+        loopEmitter(loopStart);
+        loopStart = start;
         landJump(bodyJump);
     }
 
-    
-    // execute body
-    statement();
-    loopEmitter(beginLoop);
+    if (!match(T_PARAM_END)) {
+        defineVariable(variable);
+        binary(false);
 
-    if (exitLoop != -1) {
-        landJump(exitLoop);
+        forceConsume(T_PARAM_END, "Expected ':' in 'as' loop.");
+        exitJump = jumpEmitter(SIG_EXECUTE);
+        byteEmitter(SIG_POP);
+    }
+
+    statement();
+    loopEmitter(loopStart);
+
+    if (exitJump != -1) {
+        landJump(exitJump);
         byteEmitter(SIG_POP);
     }
 
