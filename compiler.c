@@ -80,7 +80,7 @@ ParseRule rules[] = {
     [T_R_BRACK]          =             {NULL,          NULL,       P_NONE},
     [T_L_BRACE]          =             {NULL,          NULL,       P_NONE},
     [T_R_BRACE]          =             {NULL,          NULL,       P_NONE},
-    [T_COMMA]            =             {NULL,          NULL,       P_NONE},
+    [T_COMMA]            =             {NULL,          NULL,       P_CALL},
     [T_REF]              =             {NULL,          NULL,       P_NONE},
     [T_DEREF]            =             {NULL,          NULL,       P_NONE},
     [T_HASH]             =             {NULL,          NULL,       P_NONE},
@@ -476,7 +476,7 @@ static void operate (OperationT type) {
     initCompiler(&compile, type);
     beginScope();
 
-    forceConsume(T_ASSIGN, "Expected '<-' after operation name.");
+    forceConsume(T_COMMA, "Expected ',' after operation name.");
 
     if (!check(T_PARAM_END)) {
         do {
@@ -550,53 +550,56 @@ static void asStatement () {
     int exitLoop = -1;
     int increment = -1;
     int bodyJump = -1;
-    Token var;
+    int variable;
+    Token* var;
     beginScope();
     forceConsume(T_COMMA, "Expected ',' after 'as'.");
 
     // define/declare variable
-    if (match(T_L_PAR)) {
-        // nothing
-    } else if (match(T_DEFINE)) {
-        var = parser.current;
-        definition();
+    if (match(T_DEFINE)) {
+        var = &parser.current;
+        variable = parseDefinition("Initializer required for 'as' clause.");
+        defineVariable(variable);
+        forceConsume(T_ASSIGN, "Expected '<-' after 'as' initializer definition.");
+        declaration();
         forceConsume(T_L_PAR, "Expected '[' before 'as' iterator.");
     } else {
-        var = parser.current;
-        expressionStatement();
-        forceConsume(T_L_PAR, "Expected '[' before 'as' iterator.");
+        var = &parser.current;
+        variable = parseDefinition("Initializer required for 'as' clause.");
+        defineVariable(variable);
+        forceConsume(T_PERIOD, "Expected '.' after as initializer.");
+        forceConsume(T_L_PAR, "Expected '(' before 'as' iterator.");
     }
 
     int beginLoop = currentSequence()->inventory;
-
+    
+    // iterator
     if (!match(T_R_PAR)) {
         bodyJump = jumpEmitter(SIG_JUMP);
         increment = currentSequence()->inventory;
-
-        // determine iterator
+        variableName(*var, true);
         expression();
         byteEmitter(SIG_POP);
         
-        forceConsume(T_R_PAR, "Expected ']' after 'as' iterator.");
-
-
+        forceConsume(T_R_PAR, "Expected ')' after 'as' iterator.");
+        beginLoop = increment;
     }
 
     // check comparisons
     if (!match(T_PARAM_END)) {
-        // expression
-        expression();
+        variableName(*var, false);
+        stepThrough();
+        binary(false);
         forceConsume(T_PARAM_END, "Expected ':' after 'as' conditions.");
         exitLoop = jumpEmitter(SIG_EXECUTE);
-        beginLoop = increment;
-        landJump(bodyJump);
         byteEmitter(SIG_POP);
+
+        landJump(bodyJump);
     }
 
     
     // execute body
     statement();
-
     loopEmitter(beginLoop);
 
     if (exitLoop != -1) {

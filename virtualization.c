@@ -71,7 +71,7 @@ static Interpretation elucidate () {
     #define READ_SHORT() \
         (frame->instruction += 2, \
         (uint16_t)((frame->instruction[-2] << 8) | frame->instruction[-1]))
-    #define BINARY_OP(valueType, op) { \
+    #define BINARY_OP(valueType, operand) { \
         do { \
             if(!IS_NUMERAL(peek(0)) || !IS_NUMERAL(peek(1))) { \
                 runtimeErr("Operands must be numeral types."); \
@@ -79,7 +79,7 @@ static Interpretation elucidate () {
             } \
             double b = AS_NUMERAL(pop()); \
             double a = AS_NUMERAL(pop()); \
-            push(valueType(a op b)); \
+            push(valueType(a operand b)); \
             } while (false); \
         }
     
