@@ -121,6 +121,8 @@ int stripCommand (Sequence* seq, int offset) {
             return instructJump("SIG_EXECUTE", 1, seq, offset);
         case SIG_LOOP:
             return instructJump("SIG_LOOP", -1, seq, offset);
+        case SIG_CALL:
+            return instructByte("SIG_CALL", seq, offset);
         case SIG_RETURN:
             return instruct("SIG_RETURN", offset);
         default:

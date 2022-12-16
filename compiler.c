@@ -72,6 +72,7 @@ static void grouping(bool assignable);
 static void unary(bool assignable);
 static void binary(bool assignable);
 static void literal(bool assignable);
+static void call(bool assignable);
 
 ParseRule rules[] = {
     [T_L_PAR]            =             {grouping,      NULL,       P_NONE},
@@ -80,7 +81,7 @@ ParseRule rules[] = {
     [T_R_BRACK]          =             {NULL,          NULL,       P_NONE},
     [T_L_BRACE]          =             {NULL,          NULL,       P_NONE},
     [T_R_BRACE]          =             {NULL,          NULL,       P_NONE},
-    [T_COMMA]            =             {NULL,          NULL,       P_CALL},
+    [T_COMMA]            =             {NULL,          NULL,       P_NONE},
     [T_REF]              =             {NULL,          NULL,       P_NONE},
     [T_DEREF]            =             {NULL,          NULL,       P_NONE},
     [T_HASH]             =             {NULL,          NULL,       P_NONE},
@@ -90,7 +91,7 @@ ParseRule rules[] = {
     [T_PARAM_END]        =             {NULL,          NULL,       P_NONE},
     [T_CLOSE]            =             {NULL,          NULL,       P_NONE},
     [T_ID]               =             {variable,      NULL,       P_NONE},
-    [T_EXECUTE]          =             {NULL,          NULL,       P_NONE},
+    [T_EXECUTE]          =             {NULL,          call,       P_CALL},
     [T_LOG]              =             {NULL,          NULL,       P_LOG},
     [T_MINUS]            =             {unary,         binary,     P_TERM},
     [T_PLUS]             =             {NULL,          binary,     P_TERM},
@@ -476,7 +477,7 @@ static void operate (OperationT type) {
     initCompiler(&compile, type);
     beginScope();
 
-    forceConsume(T_COMMA, "Expected ',' after operation name.");
+    forceConsume(T_ASSIGN, "Expected '<-' after operation name.");
 
     if (!check(T_PARAM_END)) {
         do {
@@ -782,6 +783,24 @@ static void binary (bool assignable) {
     return;
 }
 
+static uint8_t arguments() {
+    uint8_t args = 0;
+    if (!check(T_PERIOD)) {
+        do { 
+            expression();
+            if (args >= 255) {
+                prevErr("255 Argument Limit Exceeded.");
+            }
+            args++; 
+        } while (match(T_COMMA));
+    }
+    return args;
+}
+
+static void call (bool assignable) {
+    uint8_t args = arguments();
+    emitBytes(SIG_CALL, args);
+}
 
 OOperation* compile(const char* source) {
     Compiler compiler;

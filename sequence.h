@@ -29,6 +29,7 @@ typedef enum {
     SIG_GLOBAL_ASSIGN,
     SIG_GLOBAL_RETURN,
     SIG_PRINT,
+    SIG_CALL,
     SIG_RETURN,
 } OpCode;
 

@@ -17,6 +17,66 @@ Value pop () { vm.stackHead--; return *vm.stackHead; }
 static Value peek (int dist) { return vm.stackHead[-1 - dist]; }
 static bool isFalse (Value value) { return IS_NONE(value) || (IS_BOOLEAN(value) && !AS_BOOLEAN(value)); }
 
+static void runtimeErr(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+    fputs("\n", stderr);
+
+    for (int i = vm.frameCount - 1; i >= 0; i--) {
+        CallFrame* frame = &vm.frames[i];
+        OOperation* op = frame->operation;
+        size_t instructor = frame->instruction - op->sequence.code - 1;
+
+        fprintf(stderr, "[line %d] in ", op->sequence.line[instructor]);
+
+        if (op->name == NULL) {
+            fprintf(stderr, "script\n");
+        } else {
+            fprintf(stderr, "%s()\n", op->name->chars);
+        }
+    }
+
+    CallFrame* frame = &vm.frames[vm.frameCount - 1];
+    size_t instruct = frame->instruction - frame->operation->sequence.code - 1;
+    int line = frame->operation->sequence.line[instruct];
+
+    fprintf(stderr, "[line %d] in script\n", line);
+    resetStack;
+}
+
+static bool call (OOperation* op, int args) {
+    if (args != op->arity) {
+        runtimeErr("Expected %d arguements, but only received %d.", op->arity, args);
+        return false;
+    }
+
+    if (vm.frameCount >= FRAME_MAX) {
+        runtimeErr("Stack Overflow Suka.");
+        return false;
+    }
+
+    CallFrame* frame = &vm.frames[vm.frameCount++];
+    frame->operation = op;
+    frame->instruction = op->sequence.code;
+    frame->slot = vm.stackHead - args - 1;
+    return true;
+}
+
+static bool callValue (Value called, int args) {
+    if (IS_OBJECT(called)) {
+        switch (OBJECT_TYPE(called)) {
+            case O_OPERATION:
+                return call(AS_OPERATION(called), args);
+            default:
+                break;
+        }
+    }
+    runtimeErr("Can Only Call Operations and Objects.");
+    return false;
+}
+
 static void concatenation () {
     OString* latter = AS_STRING(pop());
     OString* prior = AS_STRING(pop());
@@ -30,21 +90,6 @@ static void concatenation () {
 
     OString* newString = genString(chars, len);
     push(OBJECT_VALUE(newString));
-}
-
-static void runtimeErr(const char* format, ...) {
-    va_list args;
-    va_start(args, format);
-    vfprintf(stderr, format, args);
-    va_end(args);
-    fputs("\n", stderr);
-
-    CallFrame* frame = &vm.frames[vm.frameCount - 1];
-    size_t instruct = frame->instruction - frame->operation->sequence.code - 1;
-    int line = frame->operation->sequence.line[instruct];
-
-    fprintf(stderr, "[line %d] in script\n", line);
-    resetStack;
 }
 
 void initVM () {
@@ -235,6 +280,14 @@ static Interpretation elucidate () {
                 vm.instruction -= offset;
                 break;
             }
+            case SIG_CALL: {
+                int args = READ_INSTRUCTION();
+                if (!callValue(peek(args), args)) {
+                    return RUNTIME_ERROR;
+                }
+                frame = &vm.frames[vm.frameCount - 1];
+                break;
+            }
             case SIG_RETURN: {
                 #ifdef DEBUG_TRACE_EXECUTION
                 printf("\n");
@@ -262,10 +315,7 @@ Interpretation interpret (const char* source) {
     if (op == NULL) { return COMPILE_ERROR; }
 
     push(OBJECT_VALUE(op));
-    CallFrame* frame = &vm.frames[vm.frameCount++];
-    frame->operation = op;
-    frame->instruction = op->sequence.code;
-    frame->slot = vm.stack;
+    call(op, 0);
 
     return elucidate();
 }
