@@ -1,0 +1,6 @@
+// short form - '^' closes the body and returns the trailing expression
+op adder<-a,b:$^(a + b)
+
+op main<-:$ log->adder->1,3. ^
+
+main->.

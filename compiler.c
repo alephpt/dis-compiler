@@ -92,7 +92,7 @@ ParseRule rules[] = {
     [T_CLOSE]            =             {NULL,          NULL,       P_NONE},
     [T_ID]               =             {variable,      NULL,       P_NONE},
     [T_EXECUTE]          =             {NULL,          call,       P_CALL},
-    [T_LOG]              =             {NULL,          NULL,       P_LOG},
+    [T_LOG]              =             {NULL,          NULL,       P_NONE},
     [T_MINUS]            =             {unary,         binary,     P_TERM},
     [T_PLUS]             =             {NULL,          binary,     P_TERM},
     [T_WHACK]            =             {NULL,          binary,     P_FACTOR},
@@ -114,7 +114,7 @@ ParseRule rules[] = {
     [T_EQEQ]             =             {NULL,          binary,     P_EQUALS},
     [T_INEQ]             =             {NULL,          binary,     P_EQUALS},
     [T_NOT]              =             {unary,         NULL,       P_NONE},
-    [T_ASSIGN]           =             {NULL,          NULL,       P_ASSIGN},
+    [T_ASSIGN]           =             {NULL,          NULL,       P_NONE},
     [T_L_OUT]            =             {NULL,          NULL,       P_NONE},
     [T_R_OUT]            =             {NULL,          NULL,       P_NONE},
     [T_COMMENT]          =             {NULL,          NULL,       P_NONE},
@@ -204,7 +204,7 @@ static ParseRule* getRule (TType type) { return &rules[type]; }
 static bool check (TType type) { return parser.current.type == type; }
 static void byteEmitter (uint8_t byte) { writeSequence(currentSequence(), byte, parser.prev.line); return; }
 static void emitBytes (uint8_t byte1, uint8_t byte2) { byteEmitter(byte1); byteEmitter(byte2); return; }
-static void returnEmitter() { byteEmitter(SIG_RETURN); return; }
+static void returnEmitter() { byteEmitter(OP_NONE); byteEmitter(SIG_RETURN); return; }
 
 static OOperation* closeCompilation() { 
     returnEmitter();
@@ -344,6 +344,12 @@ static void precedence (Precedence precede) {
     while (precede <= getRule(parser.current.type)->precedence) {
         stepThrough();
         PType infix = getRule(parser.prev.type)->infix;
+
+        if (infix == NULL) {
+            prevErr("Operator expected.");
+            return;
+        }
+
         infix(assignable);
     }
 
@@ -376,6 +382,17 @@ static void scope () {
     }
 
     forceConsume(T_CLOSE, "Expected closing '^' at end of scope.");
+
+    // '^' closes a body and returns - an operation body may carry a result on
+    // the same line, ie. 'op adder <- a, b : $ ^(a + b)'
+    if (current->type != TYPE_SCRIPT &&
+        parser.current.line == parser.prev.line &&
+        getRule(parser.current.type)->prefix != NULL) {
+        expression();
+        match(T_PERIOD);
+        byteEmitter(SIG_RETURN);
+    }
+
     return;
 }
 
@@ -679,6 +696,22 @@ static void whileStatement () {
     return;
 }
 
+static void returnStatement () {
+    if (current->type == TYPE_SCRIPT) {
+        prevErr("Can't return from top level code.");
+    }
+
+    if (match(T_PERIOD)) {
+        returnEmitter();
+        return;
+    }
+
+    expression();
+    forceConsume(T_PERIOD, "Expected '.' after return value.");
+    byteEmitter(SIG_RETURN);
+    return;
+}
+
 static void definition () {
     uint8_t variable = parseDefinition("Expected variable name.");
 
@@ -700,6 +733,7 @@ static void statement () {
     if (match(T_AS)) { asStatement(); } else
     if (match(T_WHEN)) { whenStatement(); } else
     if (match(T_WHILE)) { whileStatement(); } else
+    if (match(T_RETURN)) { returnStatement(); } else
     if (match(T_OPEN)) {
         beginScope();
         scope();
@@ -718,7 +752,8 @@ static void declaration () {
     return;
 }
 
-static void literal () {
+static void literal (bool assignable) {
+    (void)assignable;
     switch (parser.prev.type) {
         case T_FALSE: byteEmitter(OP_FALSE); break;
         case T_NONE: byteEmitter(OP_NONE); break;

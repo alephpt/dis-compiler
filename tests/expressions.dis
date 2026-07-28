@@ -1,0 +1,20 @@
+/* arithmetic, comparison, logic, strings and scoped assignment */
+
+log -> 1 + 2 * 3 - 4 / 2.
+log -> -(3 + 4).
+log -> !true.
+log -> 1 < 2.
+log -> 2 == 2.
+log -> 3 != 2.
+log -> "con" + "cat".
+log -> none.
+
+def counter <- 0.
+counter <- counter + 1.
+counter <- counter + 1.
+log -> counter.
+
+$
+    def local <- "scoped".
+    log -> local.
+^

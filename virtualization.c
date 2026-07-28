@@ -38,12 +38,7 @@ static void runtimeErr(const char* format, ...) {
         }
     }
 
-    CallFrame* frame = &vm.frames[vm.frameCount - 1];
-    size_t instruct = frame->instruction - frame->operation->sequence.code - 1;
-    int line = frame->operation->sequence.line[instruct];
-
-    fprintf(stderr, "[line %d] in script\n", line);
-    resetStack;
+    resetStack();
 }
 
 static bool call (OOperation* op, int args) {
@@ -87,6 +82,7 @@ static void concatenation () {
 
     memcpy(chars, prior->chars, prior->length);
     memcpy(chars + prior->length, latter->chars, latter->length);
+    chars[len] = '\0';
 
     OString* newString = genString(chars, len);
     push(OBJECT_VALUE(newString));
@@ -130,16 +126,17 @@ static Interpretation elucidate () {
     
     for (;;) {
         #ifdef DEBUG_TRACE_EXECUTION
-        int offset = (int)(vm.instruction - vm.sequence->code);
+        Sequence* traced = &frame->operation->sequence;
+        int offset = (int)(frame->instruction - traced->code);
 
         for (Value* slot = vm.stack; slot < vm.stackHead; slot++) {
-            if (slot == vm.stack) { 
-                if (vm.sequence->line[offset] != vm.sequence->line[offset - 1]) {
+            if (slot == vm.stack) {
+                if (offset > 0 && traced->line[offset] != traced->line[offset - 1]) {
                     printf("\033[90m");
                     printf(" stack   ╚══╬┤ [ ");
                 } else {
                     printf("\033[90m");
-                    printf(" stack   ╠══╬┤ [ "); 
+                    printf(" stack   ╠══╬┤ [ ");
                 }
             } else {
                 printf("─[ ");
@@ -149,13 +146,12 @@ static Interpretation elucidate () {
             printf(" ]");
         }
 
-        if (vm.stackHead != vm.stack) { 
-            printf(" ├╣\n"); 
-            printf("\033[0m");        
+        if (vm.stackHead != vm.stack) {
+            printf(" ├╣\n");
+            printf("\033[0m");
         }
 
-        stripCommand(&frame->operation->sequence, 
-                (int)(frame->instruction - frame->operation->sequence.code));
+        stripCommand(traced, offset);
         #endif
 
         uint8_t instructor;
@@ -277,7 +273,7 @@ static Interpretation elucidate () {
             }
             case SIG_LOOP: {
                 uint16_t offset = READ_SHORT();
-                vm.instruction -= offset;
+                frame->instruction -= offset;
                 break;
             }
             case SIG_CALL: {
@@ -293,11 +289,18 @@ static Interpretation elucidate () {
                 printf("\n");
                 #endif
 
-                // printf("return ");
-                // printValue(pop());
-                // printf("\n");
+                Value result = pop();
+                vm.frameCount--;
 
-                return INTERPRETED;
+                if (vm.frameCount == 0) {
+                    pop();
+                    return INTERPRETED;
+                }
+
+                vm.stackHead = frame->slot;
+                push(result);
+                frame = &vm.frames[vm.frameCount - 1];
+                break;
             }
         }
     }
@@ -315,7 +318,7 @@ Interpretation interpret (const char* source) {
     if (op == NULL) { return COMPILE_ERROR; }
 
     push(OBJECT_VALUE(op));
-    call(op, 0);
+    if (!call(op, 0)) { return RUNTIME_ERROR; }
 
     return elucidate();
 }

@@ -57,7 +57,8 @@ int stripCommand (Sequence* seq, int offset) {
             printf("\033[0m");
         } else
         #endif
-        if (seq->line[offset] != seq->line[offset + 2]) {
+        if (offset + 2 >= seq->inventory ||
+            seq->line[offset] != seq->line[offset + 2]) {
             printf("\033[90m");
             printf("   ╚─── ");
             printf("\033[0m");
@@ -86,9 +87,9 @@ int stripCommand (Sequence* seq, int offset) {
         case SIG_POP:
             return instruct("SIG_POP", offset);
         case SIG_LOCAL_ASSIGN:
-            return instructByte("SIG_LOCAL_RETURN", seq, offset);
-        case SIG_LOCAL_RETURN:
             return instructByte("SIG_LOCAL_ASSIGN", seq, offset);
+        case SIG_LOCAL_RETURN:
+            return instructByte("SIG_LOCAL_RETURN", seq, offset);
         case SIG_GLOBAL_RETURN:
             return instructValue("SIG_GLOBAL_RETURN", seq, offset);
         case SIG_GLOBAL_ASSIGN:

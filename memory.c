@@ -27,9 +27,13 @@ static void freeObj (Obj* o) {
             break;
         }
         case O_OPERATION: {
-            OOperation* o = (OOperation*)o;
-            freeSequence(&o->sequence);
+            OOperation* op = (OOperation*)o;
+            freeSequence(&op->sequence);
             FREE(OOperation, o);
+            break;
+        }
+        default: {
+            FREE(Obj, o);
             break;
         }
     }

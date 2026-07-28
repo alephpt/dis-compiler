@@ -137,7 +137,7 @@ OString* findString(Table* table, const char* chars, int len, uint32_t hash) {
 }
 
 void freeTable (Table* table) {
-    FREE_ARRAY(Record, table->items, table->tally);
+    FREE_ARRAY(Record, table->items, table->limit);
     initTable(table);
     return;
 }

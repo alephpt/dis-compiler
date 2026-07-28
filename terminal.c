@@ -13,7 +13,7 @@ void repl() {
         printf("~> ");
 
         if (!fgets(line, sizeof(line), stdin)) {
-            printf("\n", line);
+            printf("\n");
             break;
         }
         #ifdef DEBUG_TRACE_EXECUTION    

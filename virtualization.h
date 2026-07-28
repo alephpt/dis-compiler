@@ -15,8 +15,6 @@ typedef struct {
 } CallFrame;
 
 typedef struct {
-    Sequence* sequence;
-    uint8_t* instruction;
     Value stack[STACK_MAX];
     Value* stackHead;
     CallFrame frames[FRAME_MAX];

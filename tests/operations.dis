@@ -1,0 +1,18 @@
+// long form - explicit 'return' declarations, recursion, and a void operation
+
+op adder <- a, b :
+$
+    return (a + b).
+^
+
+op fib <- n : $
+    when, n < 2:
+        return n.
+    return (fib -> n - 1) + (fib -> n - 2).
+^
+
+op noret <- : $ ^
+
+log -> adder -> 2, 40.
+log -> fib -> 10.
+log -> noret->.

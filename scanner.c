@@ -199,13 +199,12 @@ static Token string(bool singleQ) {
         comp = '"';
     }
     while (peek() != comp && !ended()) {
-        if (peekNext() == '\n') { 
-            if (peek() == '\\') {
-                read_c();
-                scanner.line++; 
-            } else {
-                return errToken("Unterminated string.");
-            }
+        if (peek() == '\\' && peekNext() == '\n') {
+            read_c();
+            scanner.line++;
+        } else
+        if (peek() == '\n') {
+            return errToken("Unterminated string.");
         }
         read_c();
     }
@@ -234,11 +233,22 @@ static void skipBlanks () {
                 if (peekNext() == '/') {
                     // single line comment
                     while (peek() != '\n' && !ended()) { read_c(); }
-                } else 
+                    break;
+                } else
                 if (peekNext() == '*') {
                     // block comment
-                    while (peek() != '*' && peekNext() != '\\' && !ended()) { read_c(); }
+                    read_c();
+                    read_c();
+
+                    while (!ended() && !(peek() == '*' && peekNext() == '/')) {
+                        if (peek() == '\n') { scanner.line++; }
+                        read_c();
+                    }
+
+                    if (!ended()) { read_c(); read_c(); }
+                    break;
                 }
+                return;
             default:
                 return;
         }
@@ -278,7 +288,7 @@ Token scanToken () {
         case '[': return genToken(T_L_BRACK);
         case ']': return genToken(T_R_BRACK);
         case '{': return genToken(T_L_BRACE);
-        case '}': return genToken(T_L_BRACE);
+        case '}': return genToken(T_R_BRACE);
         case '.': return genToken(T_PERIOD);
         case ',': return genToken(T_COMMA);
         case ':': return genToken( match(':') ? T_MEMBER : T_PARAM_END );
@@ -294,8 +304,8 @@ Token scanToken () {
         case '=': return genToken( match('=') ? T_EQEQ : T_EQ );
         case '<': return genToken( match('=') ? T_LTOE : match('-') ? T_ASSIGN : T_LESSER );
         case '>': return genToken( match('=') ? T_GTOE : T_GREATER );
-        case '@': return genToken(T_REF);
-        case '&': return genToken( match('&') ? T_AND_OP : T_DEREF );
+        case '@': return genToken(T_DEREF);
+        case '&': return genToken( match('&') ? T_AND_OP : T_REF );
         case '|': return genToken( match('|') ? T_OR_OP : T_BITWISE );
         case '\'': return string(true);
         case '"': return string(false);
