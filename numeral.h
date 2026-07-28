@@ -2,47 +2,16 @@
 #define dis_numeral_h
 
 #include "header.h"
-#include "value.h"
 
-#define NUMERAL_TYPE(value)     (AS_NUMERAL(value)->type)
-#define IS_HEXADECIMAL(value)   isNumeralType(value, N_HEXADECIMAL)
-#define IS_DENARY(value)        isNumeralType(value, N_DENARY)
-#define IS_OCTAL(value)         isNumeralType(value, N_OCTAL)
-#define IS_BINARY(value)        isNumeralType(value, N_BINARY)
-
+// the enum value is the radix of the literal it tags
 typedef enum {
-    N_BINARY,
-    N_OCTAL,
-    N_DENARY,
-    N_HEXADECIMAL
+    N_BINARY = 2,           // 0b1010
+    N_OCTAL = 8,            // 0c17
+    N_DENARY = 10,          // 255 || 1.5
+    N_HEXADECIMAL = 16      // 0xFF
 } NumeralT;
 
-struct Numeral {
-    NumeralT type;
-};
-
-struct NHexadecimal {
-    Numeral numeral;
-    char* number;
-};
-
-struct NDenary {
-    Numeral numeral;
-    double number;
-};
-
-struct NOctal {
-    Numeral numeral;
-    int number;
-}
-
-struct NBinary {
-    Numeral numeral;
-    int number;
-}
-
-static inline bool isNumeralType(Value value, NumeralT type) {
-    return IS_NUMERAL(value) && AS_NUMERAL(value)->type == type;
-}
+// every literal resolves into the single numeral representation of the vm
+double parseNumeral (const char* chars, int len, NumeralT base);
 
 #endif

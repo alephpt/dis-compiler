@@ -1,0 +1,53 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// a form name resolves like any other name - a local or a parameter shadows the
+// layout, and the layout itself is reached through its global binding
+
+form Pixel <- $
+    r <- u8.
+    g <- u8.
+^
+
+form Tint <- $
+    level <- u8.
+^
+
+// the layout is reachable before anything shadows it
+def fb <- Pixel[4].
+fb[2]::r <- 0x40.
+log -> Pixel.
+log -> fb[2]::r.
+
+// a local shadows the layout for the length of its scope
+$
+    def Pixel <- 7.
+    log -> Pixel.
+    log -> Pixel + 1.
+^
+
+// and the layout is intact once that scope closes
+log -> Pixel.
+def after <- Pixel[2].
+after[1]::g <- 33.
+log -> after[1]::g.
+
+// a parameter shadows the layout inside the body of an operation
+op takes <- Pixel : $
+    return Pixel + 1.
+^
+
+log -> takes -> 41.
+log -> Pixel.
+
+// a nested local shadows, an inner scope past it does not
+$
+    def Pixel <- 100.
+    $
+        log -> Pixel.
+    ^
+^
+
+// rebinding the global rebinds the name - done last, it consumes the layout
+def Tint <- 5.
+log -> Tint.
+log -> Tint + 1.

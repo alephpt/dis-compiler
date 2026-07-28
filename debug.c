@@ -126,6 +126,12 @@ int stripCommand (Sequence* seq, int offset) {
             return instructByte("SIG_CALL", seq, offset);
         case SIG_RETURN:
             return instruct("SIG_RETURN", offset);
+        case SIG_ALLOCATE:
+            return instruct("SIG_ALLOCATE", offset);
+        case SIG_MEMBER_ASSIGN:
+            return instructValue("SIG_MEMBER_ASSIGN", seq, offset);
+        case SIG_MEMBER_RETURN:
+            return instructValue("SIG_MEMBER_RETURN", seq, offset);
         default:
             printf("Unknown Instruction %d\n", instruction);
             return offset + 1;

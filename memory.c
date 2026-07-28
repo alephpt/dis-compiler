@@ -32,6 +32,18 @@ static void freeObj (Obj* o) {
             FREE(OOperation, o);
             break;
         }
+        case O_FORM: {
+            OForm* form = (OForm*)o;
+            FREE_ARRAY(FormField, form->fields, form->fieldCount);
+            FREE(OForm, o);
+            break;
+        }
+        case O_BUFFER: {
+            OBuffer* buffer = (OBuffer*)o;
+            FREE_ARRAY(uint8_t, buffer->bytes, (size_t)buffer->count * (size_t)buffer->form->stride);
+            FREE(OBuffer, o);
+            break;
+        }
         default: {
             FREE(Obj, o);
             break;

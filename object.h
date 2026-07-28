@@ -8,9 +8,13 @@
 #define OBJECT_TYPE(value)  (AS_OBJECT(value)->type)
 #define IS_STRING(value)    isObjType(value, O_STRING)
 #define IS_OPERATION(value) isObjType(value, O_OPERATION)
+#define IS_FORM(value)      isObjType(value, O_FORM)
+#define IS_BUFFER(value)    isObjType(value, O_BUFFER)
 #define AS_STRING(value)    ((OString*)AS_OBJECT(value))
 #define AS_CSTRING(value)   (((OString*)AS_OBJECT(value))->chars)
 #define AS_OPERATION(value) ((OOperation*)AS_OBJECT(value))
+#define AS_FORM(value)      ((OForm*)AS_OBJECT(value))
+#define AS_BUFFER(value)    ((OBuffer*)AS_OBJECT(value))
 
 typedef enum {
     O_PILOT,
@@ -18,7 +22,16 @@ typedef enum {
     O_STRING,
     O_OPERATION,
     O_OBJ,
+    O_FORM,
+    O_BUFFER,
 } ObjectT;
+
+// the explicit width of a single form field - the layout is the type
+typedef enum {
+    W_U8, W_U16, W_U32, W_U64,
+    W_I8, W_I16, W_I32, W_I64,
+    W_F32, W_F64
+} WidthT;
 
 struct Obj{
     ObjectT type;
@@ -39,9 +52,40 @@ struct OString{
     uint32_t hash;
 };
 
+// a member of a form layout - offsets are packed, no padding is ever inserted
+typedef struct {
+    OString* name;
+    WidthT width;
+    int offset;
+} FormField;
+
+// the layout descriptor - declared once, shared by every buffer of that form
+typedef struct {
+    Obj object;
+    OString* name;
+    FormField* fields;
+    int fieldCount;
+    int stride;
+} OForm;
+
+// a flat linear region of raw bytes - 'count' packed elements of 'form'
+typedef struct {
+    Obj object;
+    OForm* form;
+    uint8_t* bytes;
+    int count;
+} OBuffer;
+
 OString* genString (char* chars, int len);
 OString* copyString (const char* chars, int len);
 OOperation* newOperation ();
+int widthSize (WidthT width);
+bool findWidth (const char* chars, int len, WidthT* width);
+OForm* newForm (OString* name, const FormField* fields, int fieldCount);
+OBuffer* newBuffer (OForm* form, int count);
+FormField* findField (OForm* form, OString* name);
+double readWidth (const uint8_t* slot, WidthT width);
+void writeWidth (uint8_t* slot, WidthT width, double value);
 void printObject (Value value);
 
 static inline bool isObjType(Value value, ObjectT type) {

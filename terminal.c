@@ -47,8 +47,9 @@ void runFile (const char* file) {
     Interpretation res = interpret(source);
     free(source);
     
-    if (res == COMPILE_ERROR) exit(65);
-    if (res == RUNTIME_ERROR) exit(70);
+    // an early exit still owns every allocation the run made
+    if (res == COMPILE_ERROR) { freeVM(); exit(65); }
+    if (res == RUNTIME_ERROR) { freeVM(); exit(70); }
 
     return;
 }

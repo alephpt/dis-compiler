@@ -74,8 +74,9 @@ typedef enum {
     T_ENUM,             // "enum" || "enumeration"  
     T_FORM,             // "form"                   - template, can be used as a dictionary, or used with pilots
     T_PAIR,             // "pair"                   - single kv pair
-    T_STRING,           // type of char[]  
-    T_BINARY,           // type of number         
+    T_WIDTH,            // "u8".."u64" "i8".."i64" "f32" "f64" - form field widths
+    T_STRING,           // type of char[]
+    T_BINARY,           // type of number
     T_DECIMAL,          // type of number
     T_OCTAL,            // type of number
     T_HEXADECIMAL,      // type of number

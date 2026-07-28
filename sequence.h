@@ -31,6 +31,9 @@ typedef enum {
     SIG_PRINT,
     SIG_CALL,
     SIG_RETURN,
+    SIG_ALLOCATE,
+    SIG_MEMBER_ASSIGN,
+    SIG_MEMBER_RETURN,
 } OpCode;
 
 // data

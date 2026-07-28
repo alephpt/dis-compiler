@@ -1,0 +1,125 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// form - packed memory layout. the layout is the type.
+
+form Pixel <- $
+    r <- u8.
+    g <- u8.
+    b <- u8.
+    a <- u8.
+^
+
+form Vec4 <- $
+    x <- f32.
+    y <- f32.
+    z <- f32.
+    w <- f32.
+^
+
+form Mixed <- $
+    tag <- u8.
+    span <- i32.
+    scale <- f64.
+^
+
+// a bare form name is the layout descriptor
+log -> Pixel.
+log -> Vec4.
+log -> Mixed.
+
+// a single instance is a buffer of one
+def v <- Vec4.
+log -> v.
+
+v::x <- 1.5.
+v::y <- -2.25.
+log -> v::x.
+log -> v::y.
+log -> v::z.
+
+// the size is a full expression, evaluated at the allocation site
+def fb <- Pixel[8 * 8].
+log -> fb.
+
+// hex, binary and octal literals
+fb[3]::r <- 0xFF.
+fb[3]::g <- 0b1010.
+fb[3]::b <- 0c17.
+// widths truncate on store - 300 lands in a u8
+fb[3]::a <- 300.
+
+log -> fb[3]::r.
+log -> fb[3]::g.
+log -> fb[3]::b.
+log -> fb[3]::a.
+
+// untouched elements are zeroed
+log -> fb[0]::r.
+log -> fb[63]::a.
+
+// loads widen back into the numeral of the vm
+def n <- fb[3]::r + v::x.
+log -> n.
+
+// signed and float widths keep their sign
+def m <- Mixed.
+m::tag <- 0xAB.
+m::span <- -70000.
+m::scale <- 0.125.
+log -> m::tag.
+log -> m::span.
+log -> m::scale.
+
+// an infinity is representable in both float widths, so it survives the store.
+// a finite double past the range of an f32 clamps to the largest f32 instead
+form Floats <- $
+    small <- f32.
+    large <- f64.
+    edge <- f32.
+^
+
+def f <- Floats.
+f::small <- 1 / 0.
+f::large <- 1 / 0.
+f::edge <- 0 - (1 / 0).
+log -> f::small.
+log -> f::large.
+log -> f::edge.
+
+// a finite 1e48 has no f32 to land in, so it clamps rather than overflowing
+def big <- 1000000.
+big <- big * big.
+big <- big * big.
+big <- big * big.
+f::small <- big.
+log -> f::small.
+f::small <- 0 - big.
+log -> f::small.
+
+f::small <- 1.
+log -> f::small.
+
+// a gradient row - r climbs with x, g falls with x
+def row <- Pixel[16].
+def x <- 0.
+
+while, x < 16: $
+    row[x]::r <- x.
+    row[x]::g <- 16 - x.
+    x <- x + 1.
+^
+
+log -> row[0]::r.
+log -> row[7]::r.
+log -> row[15]::r.
+log -> row[0]::g.
+log -> row[15]::g.
+
+// buffers survive being handed to an operation
+op brighten <- buffer, at, by : $
+    buffer[at]::r <- buffer[at]::r + by.
+    return buffer[at]::r.
+^
+
+log -> brighten -> row, 7, 100.
+log -> row[7]::r.

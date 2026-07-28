@@ -64,94 +64,104 @@ static TType checkWord(int s, int l, const char* rem, TType t) {
     return T_ID;
 }
 
+// 'u8' 'u16' 'u32' 'u64' 'i8' 'i16' 'i32' 'i64' 'f32' 'f64' - form field widths
+static TType checkWidth (int len) {
+    const char* w = scanner.start;
+
+    if (len == 2) {
+        return (w[1] == '8' && (w[0] == 'u' || w[0] == 'i')) ? T_WIDTH : T_ID;
+    }
+
+    if (len != 3) { return T_ID; }
+
+    if (memcmp(w + 1, "16", 2) != 0 &&
+        memcmp(w + 1, "32", 2) != 0 &&
+        memcmp(w + 1, "64", 2) != 0) { return T_ID; }
+
+    if (w[0] == 'u' || w[0] == 'i') { return T_WIDTH; }
+
+    // floats carry no 16 bit width
+    return (w[0] == 'f' && w[1] != '1') ? T_WIDTH : T_ID;
+}
+
+// every path must resolve to a keyword or fall back to T_ID - never drop through
 static TType iType() {
+    int len = (int)(scanner.current - scanner.start);
+
     switch (scanner.start[0]) {
         case 'a': return checkWord(1, 1, "s", T_AS);
-        case 'd': 
-            if (scanner.current - scanner.start > 2) {
-                switch (scanner.start[1]) {
-                    case 'e':
-                        if (scanner.current - scanner.start > 5) {
-                            return checkWord(2, 4, "fine", T_DEFINE);
-                        } else 
-                        if (scanner.start[2] == 'f') {
-                            return T_DEFINE;
-                        }
-                }
+        case 'd':
+            if (len == 3) { return checkWord(1, 2, "ef", T_DEFINE); }
+            return checkWord(1, 5, "efine", T_DEFINE);
+        case 'e':
+            if (len < 4) { return T_ID; }
+            switch (scanner.start[1]) {
+                case 'n': return checkWord(2, 2, "um", T_ENUM);
+                case 'l': return checkWord(2, 2, "se", T_ELSE);
+                default: return T_ID;
             }
-        case 'e': 
-            if (scanner.current - scanner.start > 3) {
-                switch (scanner.start[1]) {
-                    case 'n': return checkWord(2, 2, "um", T_ENUM);
-                    case 'l': return checkWord(2, 2, "se", T_ELSE);
-                }
-            }
-        case 'f': 
-            if (scanner.current - scanner.start > 3) {
-                switch (scanner.start[1]) {
-                    case 'a': return checkWord(2, 3, "lse", T_FALSE);
-                    case 'o': return checkWord(2, 2, "rm", T_FORM);
-                }
+        case 'f':
+            if (len == 3) { return checkWidth(len); }
+            switch (scanner.start[1]) {
+                case 'a': return checkWord(2, 3, "lse", T_FALSE);
+                case 'o': return checkWord(2, 2, "rm", T_FORM);
+                default: return T_ID;
             }
         case 'g': return checkWord(1, 5, "lobal", T_GLOBAL);
-        case 'i': return checkWord(1, 6, "nclude", T_INCLUDE);
+        case 'i':
+            if (len < 4) { return checkWidth(len); }
+            return checkWord(1, 6, "nclude", T_INCLUDE);
         case 'l': return checkWord(1, 2, "og", T_LOG);
         case 'n': return checkWord(1, 3, "one", T_NONE);
         case 'N': return checkWord(1, 3, "ONE", T_NONE);
-        case 'o': 
-            if (scanner.current - scanner.start == 2) {
-                switch (scanner.start[1]) { 
+        case 'o':
+            if (len == 2) {
+                switch (scanner.start[1]) {
                     case 'p': return T_OP;
                     case 'r': return T_OR;
-                }
-            } else
-            if (scanner.current - scanner.start > 2) {
-                switch (scanner.start[1]) {
-                    case 'b': 
-                        if (scanner.current - scanner.start > 5) {
-                            return checkWord(2, 4, "ject", T_OBJ);
-                        } else 
-                        if (scanner.start[2] == 'j') {
-                            return T_OBJ;
-                        }
-                    case 'p': return checkWord(2, 7, "eration", T_OP);
+                    default: return T_ID;
                 }
             }
+            switch (scanner.start[1]) {
+                case 'b':
+                    if (len == 3) { return checkWord(2, 1, "j", T_OBJ); }
+                    return checkWord(2, 4, "ject", T_OBJ);
+                case 'p': return checkWord(2, 7, "eration", T_OP);
+                default: return T_ID;
+            }
         case 'p':
-            if (scanner.current - scanner.start > 1) {
-                switch (scanner.start[1]) {
-                    case 'a':
-                        if (scanner.current - scanner.start > 2) {
-                            switch (scanner.start[2]) {
-                                case 'r': return checkWord(3, 3, "ent", T_PARENT);
-                                case 'i': return checkWord(3, 1, "r", T_PAIR);
-                            }
-                        }
-                    case 'i': return checkWord(2, 3, "lot", T_PILOT);
-                    case 'r': return checkWord(2, 5, "ivate", T_PRIVATE);
-                    case 'u': return checkWord(2, 4, "blic", T_PUBLIC);
-                }
+            if (len < 4) { return T_ID; }
+            switch (scanner.start[1]) {
+                case 'a':
+                    switch (scanner.start[2]) {
+                        case 'r': return checkWord(3, 3, "ent", T_PARENT);
+                        case 'i': return checkWord(3, 1, "r", T_PAIR);
+                        default: return T_ID;
+                    }
+                case 'i': return checkWord(2, 3, "lot", T_PILOT);
+                case 'r': return checkWord(2, 5, "ivate", T_PRIVATE);
+                case 'u': return checkWord(2, 4, "blic", T_PUBLIC);
+                default: return T_ID;
             }
         case 'r': return checkWord(1, 5, "eturn", T_RETURN);
         case 's': return checkWord(1, 3, "elf", T_SELF);
-        case 't': 
-            if (scanner.current - scanner.start > 3) {
-                switch (scanner.start[1]) {
-                    case 'h': return checkWord(2, 2, "is", T_THIS);
-                    case 'r': return checkWord(2, 2, "ue", T_TRUE);
-                }
+        case 't':
+            if (len < 4) { return T_ID; }
+            switch (scanner.start[1]) {
+                case 'h': return checkWord(2, 2, "is", T_THIS);
+                case 'r': return checkWord(2, 2, "ue", T_TRUE);
+                default: return T_ID;
             }
+        case 'u': return checkWidth(len);
         case 'w':
-            if (scanner.current - scanner.start > 3) {
-                if (scanner.start[1] == 'h') {
-                    switch (scanner.start[2]) {
-                        case 'e': return checkWord(3, 1, "n", T_WHEN);
-                        case 'i': return checkWord(3, 2, "le", T_WHILE);
-                    }
-                }
+            if (len < 4 || scanner.start[1] != 'h') { return T_ID; }
+            switch (scanner.start[2]) {
+                case 'e': return checkWord(3, 1, "n", T_WHEN);
+                case 'i': return checkWord(3, 2, "le", T_WHILE);
+                default: return T_ID;
             }
+        default: return T_ID;
     }
-    return T_ID;
 }
 
 static Token identify() {

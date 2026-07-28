@@ -4,6 +4,7 @@
 #include "debug.h"
 #include "header.h"
 #include "compiler.h"
+#include "numeral.h"
 #include "scanner.h"
 
 typedef void (*PType)(bool assignable);
@@ -41,6 +42,12 @@ typedef struct {
     int scope;
 } LocalT;
 
+// declared layouts outlive a single compilation so the repl can keep using them
+typedef struct {
+    OString* name;
+    OForm* form;
+} FormT;
+
 typedef enum {
     TYPE_SCRIPT,
     TYPE_OPERATION
@@ -57,6 +64,10 @@ typedef struct Compiler {
 
 Parser parser;
 Compiler* current = NULL;
+FormT declaredForms[UINT8_COUNT];
+int declaredFormCount = 0;
+// a bare form name allocates a single instance only as the value of a definition
+bool formInstantiable = false;
 static void expression();
 static void declaration();
 static void definition();
@@ -73,11 +84,13 @@ static void unary(bool assignable);
 static void binary(bool assignable);
 static void literal(bool assignable);
 static void call(bool assignable);
+static void indexed(bool assignable);
+static void member(bool assignable);
 
 ParseRule rules[] = {
     [T_L_PAR]            =             {grouping,      NULL,       P_NONE},
     [T_R_PAR]            =             {NULL,          NULL,       P_NONE},
-    [T_L_BRACK]          =             {NULL,          NULL,       P_NONE},
+    [T_L_BRACK]          =             {NULL,          indexed,    P_CALL},
     [T_R_BRACK]          =             {NULL,          NULL,       P_NONE},
     [T_L_BRACE]          =             {NULL,          NULL,       P_NONE},
     [T_R_BRACE]          =             {NULL,          NULL,       P_NONE},
@@ -132,13 +145,14 @@ ParseRule rules[] = {
     [T_THIS]             =             {NULL,          NULL,       P_NONE},
     [T_PUBLIC]           =             {NULL,          NULL,       P_NONE},
     [T_PRIVATE]          =             {NULL,          NULL,       P_NONE},
-    [T_MEMBER]           =             {NULL,          NULL,       P_NONE},
+    [T_MEMBER]           =             {NULL,          member,     P_CALL},
     [T_RETURN]           =             {NULL,          NULL,       P_NONE},
     [T_OP]               =             {NULL,          NULL,       P_NONE},
     [T_OBJ]              =             {NULL,          NULL,       P_NONE},
     [T_ENUM]             =             {NULL,          NULL,       P_NONE},
     [T_FORM]             =             {NULL,          NULL,       P_NONE},
     [T_PAIR]             =             {NULL,          NULL,       P_NONE},
+    [T_WIDTH]            =             {NULL,          NULL,       P_NONE},
     [T_STRING]           =             {string,        NULL,       P_NONE},
     [T_BINARY]           =             {numeral,       NULL,       P_NONE},
     [T_DECIMAL]          =             {numeral,       NULL,       P_NONE},
@@ -312,6 +326,7 @@ static void rebase () {
         switch (parser.current.type) {
             case T_OBJ:
             case T_OP:
+            case T_FORM:
             case T_DEFINE:
             case T_AS:
             case T_WHEN:
@@ -487,6 +502,108 @@ static uint8_t parseDefinition (const char* message) {
     if (current->localScope > 0) { return 0; }
     
     return identifier(&parser.prev);
+}
+
+static OForm* findForm (Token* name) {
+    for (int i = 0; i < declaredFormCount; i++) {
+        OString* declared = declaredForms[i].name;
+
+        if (declared->length == name->length &&
+            memcmp(declared->chars, name->start, name->length) == 0) {
+            return declaredForms[i].form;
+        }
+    }
+
+    return NULL;
+}
+
+static void registerForm (OString* name, OForm* form) {
+    for (int i = 0; i < declaredFormCount; i++) {
+        if (declaredForms[i].name == name) {
+            declaredForms[i].form = form;
+            return;
+        }
+    }
+
+    if (declaredFormCount == UINT8_COUNT) {
+        prevErr("Declared form limit exceeded.");
+        return;
+    }
+
+    declaredForms[declaredFormCount].name = name;
+    declaredForms[declaredFormCount].form = form;
+    declaredFormCount++;
+    return;
+}
+
+// 'name <- width.' - one packed field per statement, held in declaration order
+static int formFields (FormField* fields) {
+    int count = 0;
+
+    while (!check(T_CLOSE) && !check(T_EOF)) {
+        WidthT width = W_U8;
+
+        forceConsume(T_ID, "Expected field name in form body.");
+        OString* name = copyString(parser.prev.start, parser.prev.length);
+
+        for (int i = 0; i < count; i++) {
+            if (fields[i].name == name) { prevErr("Field with that name already exists in this form."); }
+        }
+
+        forceConsume(T_ASSIGN, "Expected '<-' after field name.");
+        forceConsume(T_WIDTH, "Expected a width - u8, u16, u32, u64, i8, i16, i32, i64, f32 or f64.");
+
+        if (!parser.panic && !findWidth(parser.prev.start, parser.prev.length, &width)) {
+            prevErr("Unknown field width.");
+        }
+
+        forceConsume(T_PERIOD, "Expected '.' after field declaration.");
+
+        // a failed field consumes nothing, so unwind rather than spin
+        if (parser.panic) { return count; }
+
+        if (count == UINT8_COUNT) {
+            prevErr("Form field limit exceeded.");
+            return count;
+        }
+
+        fields[count].name = name;
+        fields[count].width = width;
+        fields[count].offset = 0;
+        count++;
+    }
+
+    return count;
+}
+
+static void formDeclaration () {
+    FormField fields[UINT8_COUNT];
+
+    forceConsume(T_ID, "Expected form name.");
+    OString* name = copyString(parser.prev.start, parser.prev.length);
+    uint8_t global = genValue(OBJECT_VALUE(name));
+
+    forceConsume(T_ASSIGN, "Expected '<-' after form name.");
+    forceConsume(T_OPEN, "Expected '$' before form body.");
+
+    int count = formFields(fields);
+
+    if (parser.panic) { return; }
+
+    forceConsume(T_CLOSE, "Expected '^' at the end of a form body.");
+
+    if (count == 0) {
+        prevErr("A form requires at least one field.");
+        return;
+    }
+
+    OForm* form = newForm(name, fields, count);
+    registerForm(name, form);
+
+    // a layout is always bound globally - the type outlives any local scope
+    emitBytes(OP_VALUE, genValue(OBJECT_VALUE(form)));
+    emitBytes(OP_GLOBAL, global);
+    return;
 }
 
 static void operate (OperationT type) {
@@ -716,7 +833,9 @@ static void definition () {
     uint8_t variable = parseDefinition("Expected variable name.");
 
     if (match(T_ASSIGN)) {
+        formInstantiable = true;
         expression();
+        formInstantiable = false;
     } else {
         // TODO: Implement 'DEAD' type;
         byteEmitter(OP_NONE);
@@ -745,7 +864,8 @@ static void statement () {
 
 static void declaration () {
     if (match(T_OP)) { operation(); } else
-    if (match(T_DEFINE)) { definition(); } 
+    if (match(T_FORM)) { formDeclaration(); } else
+    if (match(T_DEFINE)) { definition(); }
     else { statement(); }
 
     if (parser.panic) { rebase(); }
@@ -764,8 +884,16 @@ static void literal (bool assignable) {
 }
 
 static void numeral (bool assignable) {
-    double value = strtod(parser.prev.start, NULL);
-    valueEmitter(NUMERAL_VALUE(value));
+    NumeralT base = N_DENARY;
+
+    switch (parser.prev.type) {
+        case T_BINARY:      base = N_BINARY; break;
+        case T_OCTAL:       base = N_OCTAL; break;
+        case T_HEXADECIMAL: base = N_HEXADECIMAL; break;
+        default: break;
+    }
+
+    valueEmitter(NUMERAL_VALUE(parseNumeral(parser.prev.start, parser.prev.length, base)));
     return;
 }
 
@@ -793,8 +921,72 @@ static void unary (bool assignable) {
     return;
 }
 
+// 'Pixel[n]' allocates n packed elements - 'Pixel' alone is the layout itself.
+// the layout is loaded through its global binding rather than baked in as a
+// constant, so rebinding the name is honoured like any other name in the language
+static void formName (Token name) {
+    bool instantiable = formInstantiable;
+    formInstantiable = false;
+
+    emitBytes(SIG_GLOBAL_RETURN, identifier(&name));
+
+    if (match(T_L_BRACK)) {
+        expression();
+        forceConsume(T_R_BRACK, "Expected ']' after buffer size.");
+        byteEmitter(SIG_ALLOCATE);
+        return;
+    }
+
+    // 'def v <- Vec4.' is a single instance - a buffer of one
+    if (instantiable && check(T_PERIOD)) {
+        valueEmitter(NUMERAL_VALUE(1));
+        byteEmitter(SIG_ALLOCATE);
+    }
+
+    return;
+}
+
 static void variable (bool assignable) {
-    variableName(parser.prev, assignable);
+    Token name = parser.prev;
+
+    // a local or a parameter shadows a declared layout - resolution order is
+    // the same for a form name as it is for every other name
+    if (findLocality(current, &name) == -1 && findForm(&name) != NULL) {
+        formName(name);
+        return;
+    }
+
+    variableName(name, assignable);
+}
+
+// resolves '::field' against the buffer and index already staged on the stack
+static void fieldAccess (bool assignable) {
+    forceConsume(T_ID, "Expected a field name after '::'.");
+    uint8_t field = identifier(&parser.prev);
+
+    if (assignable && match(T_ASSIGN)) {
+        expression();
+        emitBytes(SIG_MEMBER_ASSIGN, field);
+        return;
+    }
+
+    emitBytes(SIG_MEMBER_RETURN, field);
+    return;
+}
+
+static void indexed (bool assignable) {
+    expression();
+    forceConsume(T_R_BRACK, "Expected ']' after a buffer index.");
+    forceConsume(T_MEMBER, "Expected '::' after a buffer index.");
+    fieldAccess(assignable);
+    return;
+}
+
+static void member (bool assignable) {
+    // an unindexed member addresses the first element
+    valueEmitter(NUMERAL_VALUE(0));
+    fieldAccess(assignable);
+    return;
 }
 
 static void binary (bool assignable) {

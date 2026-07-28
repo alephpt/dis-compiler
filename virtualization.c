@@ -72,6 +72,60 @@ static bool callValue (Value called, int args) {
     return false;
 }
 
+// a linear region is capped so that the byte count never overflows an int
+#define BUFFER_BYTE_MAX 2147483647.0
+
+// consumes the staged form and size, leaving a zeroed linear region behind
+static bool allocateBuffer () {
+    if (!IS_NUMERAL(peek(0)) || !IS_FORM(peek(1))) {
+        runtimeErr("Buffer allocation requires a form and a numeral size.");
+        return false;
+    }
+
+    double size = AS_NUMERAL(pop());
+    OForm* form = AS_FORM(pop());
+
+    if (!(size >= 0) || size > BUFFER_BYTE_MAX || size != (double)(int64_t)size) {
+        runtimeErr("Buffer size must be a whole numeral of zero or greater.");
+        return false;
+    }
+
+    if (size * (double)form->stride > BUFFER_BYTE_MAX) {
+        runtimeErr("Buffer of '%s' is too large to allocate.", form->name->chars);
+        return false;
+    }
+
+    push(OBJECT_VALUE(newBuffer(form, (int)size)));
+    return true;
+}
+
+// consumes the staged buffer and index, resolving them to one raw field slot
+static bool memberSlot (OString* name, uint8_t** slot, WidthT* width) {
+    if (!IS_NUMERAL(peek(0)) || !IS_BUFFER(peek(1))) {
+        runtimeErr("Only form buffers carry members.");
+        return false;
+    }
+
+    double index = AS_NUMERAL(pop());
+    OBuffer* buffer = AS_BUFFER(pop());
+    FormField* field = findField(buffer->form, name);
+
+    if (field == NULL) {
+        runtimeErr("Undefined member '%s' of form '%s'.", name->chars, buffer->form->name->chars);
+        return false;
+    }
+
+    if (!(index >= 0) || !(index < (double)buffer->count) || index != (double)(int64_t)index) {
+        runtimeErr("Index out of bounds - '%s[%d]' has no element %g.",
+                   buffer->form->name->chars, buffer->count, index);
+        return false;
+    }
+
+    *slot = buffer->bytes + ((size_t)index * (size_t)buffer->form->stride) + field->offset;
+    *width = field->width;
+    return true;
+}
+
 static void concatenation () {
     OString* latter = AS_STRING(pop());
     OString* prior = AS_STRING(pop());
@@ -274,6 +328,38 @@ static Interpretation elucidate () {
             case SIG_LOOP: {
                 uint16_t offset = READ_SHORT();
                 frame->instruction -= offset;
+                break;
+            }
+            case SIG_ALLOCATE: {
+                if (!allocateBuffer()) { return RUNTIME_ERROR; }
+                break;
+            }
+            case SIG_MEMBER_ASSIGN: {
+                OString* name = READ_STRING();
+                uint8_t* slot;
+                WidthT width;
+
+                if (!IS_NUMERAL(peek(0))) {
+                    runtimeErr("Form members hold numerals only.");
+                    return RUNTIME_ERROR;
+                }
+
+                Value value = pop();
+
+                if (!memberSlot(name, &slot, &width)) { return RUNTIME_ERROR; }
+
+                writeWidth(slot, width, AS_NUMERAL(value));
+                push(value);
+                break;
+            }
+            case SIG_MEMBER_RETURN: {
+                OString* name = READ_STRING();
+                uint8_t* slot;
+                WidthT width;
+
+                if (!memberSlot(name, &slot, &width)) { return RUNTIME_ERROR; }
+
+                push(NUMERAL_VALUE(readWidth(slot, width)));
                 break;
             }
             case SIG_CALL: {
