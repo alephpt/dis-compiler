@@ -1,0 +1,412 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// A 3D software rasterizer in pure dis.
+//
+// Model -> world -> clip -> NDC -> screen, back-face culled, edge-function
+// filled, depth buffered, flat shaded, written out as a binary PPM.
+//
+// A matrix is 16 f32 cells in row major order, so cell (r, c) lives at
+// index (r * 4) + c. Named fields m00..m33 were the first shape tried, but a
+// general 4x4 multiply written against them needs more than 255 constants in
+// one operation and will not compile - the indexed form loops instead.
+
+
+// ---------------------------------------------------------------- forms ----
+
+form RGB <- $
+    r <- u8.  g <- u8.  b <- u8.
+^
+
+form Vec3f <- $
+    x <- f32.  y <- f32.  z <- f32.
+^
+
+form Vec4f <- $
+    x <- f32.  y <- f32.  z <- f32.  w <- f32.
+^
+
+// one f32 cell - a depth texel, or a single element of a matrix
+form F32 <- $
+    v <- f32.
+^
+
+form Tri <- $
+    a <- u8.  b <- u8.  c <- u8.  f <- u8.
+^
+
+
+// ------------------------------------------------------------ constants ----
+
+def WIDE <- 256.
+def HIGH <- 256.
+def PIXELS <- 256 * 256.
+
+// there is no sin or cos native, so the two fixed angles are written out.
+// 30 degrees of yaw and 20 degrees of pitch put three faces in view
+def COS30 <- 0.8660254.
+def SIN30 <- 0.5.
+def COS20 <- 0.9396926.
+def SIN20 <- 0.3420201.
+
+// 1 / tan(30 degrees) - a 60 degree vertical field of view
+def FOCAL <- 1.7320508.
+def NEARZ <- 0.1.
+def FARZ <- 100.
+
+def HALFSIDE <- 0.8.
+def CAMZ <- 0 - 3.5.
+def AMBIENT <- 0.25.
+def FARDEPTH <- 1000000.
+
+def BGR <- 12.
+def BGG <- 14.
+def BGB <- 22.
+
+
+// -------------------------------------------------------------- buffers ----
+
+def fb <- RGB[PIXELS].
+def zb <- F32[PIXELS].
+
+def verts <- Vec3f[8].
+def world <- Vec3f[8].
+def clip <- Vec4f[8].
+def scrn <- Vec4f[8].
+def tris <- Tri[12].
+def palette <- RGB[6].
+
+def roty <- F32[16].
+def rotx <- F32[16].
+def model <- F32[16].
+def viewm <- F32[16].
+def projm <- F32[16].
+def vp <- F32[16].
+
+def edgeA <- Vec3f[1].
+def edgeB <- Vec3f[1].
+def normal <- Vec3f[1].
+def light <- Vec3f[1].
+
+
+// ------------------------------------------------------------ vector ops ----
+
+op vsub <- o, oi, a, ai, b, bi : $
+    o[oi]::x <- a[ai]::x - b[bi]::x.
+    o[oi]::y <- a[ai]::y - b[bi]::y.
+    o[oi]::z <- a[ai]::z - b[bi]::z.
+^
+
+op vcross <- o, oi, a, ai, b, bi : $
+    def ax <- a[ai]::x.
+    def ay <- a[ai]::y.
+    def az <- a[ai]::z.
+    def bx <- b[bi]::x.
+    def by <- b[bi]::y.
+    def bz <- b[bi]::z.
+
+    o[oi]::x <- (ay * bz) - (az * by).
+    o[oi]::y <- (az * bx) - (ax * bz).
+    o[oi]::z <- (ax * by) - (ay * bx).
+^
+
+op vdot <- a, ai, b, bi : $
+    return (a[ai]::x * b[bi]::x) + (a[ai]::y * b[bi]::y) + (a[ai]::z * b[bi]::z).
+^
+
+op vnorm <- o, oi : $
+    def len <- sqrt -> (o[oi]::x * o[oi]::x) + (o[oi]::y * o[oi]::y) + (o[oi]::z * o[oi]::z).
+
+    when, len > 0: $
+        o[oi]::x <- o[oi]::x / len.
+        o[oi]::y <- o[oi]::y / len.
+        o[oi]::z <- o[oi]::z / len.
+    ^
+^
+
+
+// ------------------------------------------------------------ matrix ops ----
+
+op midentity <- m : $
+    as, def i <- 0.(++) < 16:
+        m[i]::v <- 0.
+
+    as, def i <- 0.(++) < 4:
+        m[(i * 4) + i]::v <- 1.
+^
+
+op mmul <- o, a, b : $
+    as, def r <- 0.(++) < 4: $
+        as, def c <- 0.(++) < 4: $
+            def s <- 0.
+
+            as, def k <- 0.(++) < 4:
+                s <- s + (a[(r * 4) + k]::v * b[(k * 4) + c]::v).
+
+            o[(r * 4) + c]::v <- s.
+        ^
+    ^
+^
+
+op mrotY <- m, c, s : $
+    midentity -> m.
+    m[0]::v <- c.
+    m[2]::v <- s.
+    m[8]::v <- -s.
+    m[10]::v <- c.
+^
+
+op mrotX <- m, c, s : $
+    midentity -> m.
+    m[5]::v <- c.
+    m[6]::v <- -s.
+    m[9]::v <- s.
+    m[10]::v <- c.
+^
+
+op mtranslate <- m, x, y, z : $
+    midentity -> m.
+    m[3]::v <- x.
+    m[7]::v <- y.
+    m[11]::v <- z.
+^
+
+op mperspective <- m, f, aspect, n, fz : $
+    as, def i <- 0.(++) < 16:
+        m[i]::v <- 0.
+
+    m[0]::v <- f / aspect.
+    m[5]::v <- f.
+    m[10]::v <- (fz + n) / (n - fz).
+    m[11]::v <- (2 * fz * n) / (n - fz).
+    m[14]::v <- -1.
+^
+
+// a point carries an implied w of 1, so the fourth column is added straight in
+op mxpoint <- o, oi, m, s, si : $
+    def x <- s[si]::x.
+    def y <- s[si]::y.
+    def z <- s[si]::z.
+
+    o[oi]::x <- (m[0]::v * x) + (m[1]::v * y) + (m[2]::v * z) + m[3]::v.
+    o[oi]::y <- (m[4]::v * x) + (m[5]::v * y) + (m[6]::v * z) + m[7]::v.
+    o[oi]::z <- (m[8]::v * x) + (m[9]::v * y) + (m[10]::v * z) + m[11]::v.
+^
+
+op mxclip <- o, oi, m, s, si : $
+    def x <- s[si]::x.
+    def y <- s[si]::y.
+    def z <- s[si]::z.
+
+    o[oi]::x <- (m[0]::v * x) + (m[1]::v * y) + (m[2]::v * z) + m[3]::v.
+    o[oi]::y <- (m[4]::v * x) + (m[5]::v * y) + (m[6]::v * z) + m[7]::v.
+    o[oi]::z <- (m[8]::v * x) + (m[9]::v * y) + (m[10]::v * z) + m[11]::v.
+    o[oi]::w <- (m[12]::v * x) + (m[13]::v * y) + (m[14]::v * z) + m[15]::v.
+^
+
+
+// ---------------------------------------------------------------- scene ----
+
+op buildVerts <- v, s : $
+    v[0]::x <- -s.  v[0]::y <- -s.  v[0]::z <- -s.
+    v[1]::x <- s.   v[1]::y <- -s.  v[1]::z <- -s.
+    v[2]::x <- s.   v[2]::y <- s.   v[2]::z <- -s.
+    v[3]::x <- -s.  v[3]::y <- s.   v[3]::z <- -s.
+    v[4]::x <- -s.  v[4]::y <- -s.  v[4]::z <- s.
+    v[5]::x <- s.   v[5]::y <- -s.  v[5]::z <- s.
+    v[6]::x <- s.   v[6]::y <- s.   v[6]::z <- s.
+    v[7]::x <- -s.  v[7]::y <- s.   v[7]::z <- s.
+^
+
+// twelve triangles, each wound counter clockwise seen from outside the cube.
+// the fourth field names the face, which is what picks the colour
+op buildTris <- t : $
+    t[0]::a <- 4.  t[0]::b <- 5.  t[0]::c <- 6.  t[0]::f <- 0.
+    t[1]::a <- 4.  t[1]::b <- 6.  t[1]::c <- 7.  t[1]::f <- 0.
+    t[2]::a <- 1.  t[2]::b <- 0.  t[2]::c <- 3.  t[2]::f <- 1.
+    t[3]::a <- 1.  t[3]::b <- 3.  t[3]::c <- 2.  t[3]::f <- 1.
+    t[4]::a <- 0.  t[4]::b <- 4.  t[4]::c <- 7.  t[4]::f <- 2.
+    t[5]::a <- 0.  t[5]::b <- 7.  t[5]::c <- 3.  t[5]::f <- 2.
+    t[6]::a <- 5.  t[6]::b <- 1.  t[6]::c <- 2.  t[6]::f <- 3.
+    t[7]::a <- 5.  t[7]::b <- 2.  t[7]::c <- 6.  t[7]::f <- 3.
+    t[8]::a <- 3.  t[8]::b <- 7.  t[8]::c <- 6.  t[8]::f <- 4.
+    t[9]::a <- 3.  t[9]::b <- 6.  t[9]::c <- 2.  t[9]::f <- 4.
+    t[10]::a <- 0. t[10]::b <- 1. t[10]::c <- 5. t[10]::f <- 5.
+    t[11]::a <- 0. t[11]::b <- 5. t[11]::c <- 4. t[11]::f <- 5.
+^
+
+op buildPalette <- p : $
+    p[0]::r <- 220. p[0]::g <- 70.  p[0]::b <- 70.
+    p[1]::r <- 70.  p[1]::g <- 220. p[1]::b <- 90.
+    p[2]::r <- 80.  p[2]::g <- 110. p[2]::b <- 230.
+    p[3]::r <- 230. p[3]::g <- 190. p[3]::b <- 60.
+    p[4]::r <- 200. p[4]::g <- 90.  p[4]::b <- 210.
+    p[5]::r <- 70.  p[5]::g <- 200. p[5]::b <- 210.
+^
+
+op clearBuffers <- f, z, n, br, bg, bb, far : $
+    as, def i <- 0.(++) < n: $
+        f[i]::r <- br.
+        f[i]::g <- bg.
+        f[i]::b <- bb.
+        z[i]::v <- far.
+    ^
+^
+
+
+// ------------------------------------------------------------- pipeline ----
+
+// every vertex is transformed once, then indexed by the triangles
+op transformVerts <- wld, cl, sc, v, mdl, pv, w, h : $
+    as, def i <- 0.(++) < 8: $
+        mxpoint -> wld, i, mdl, v, i.
+        mxclip -> cl, i, pv, wld, i.
+
+        def cw <- cl[i]::w.
+        sc[i]::w <- cw.
+
+        when, cw > 0: $
+            // the perspective divide, then the viewport map. screen y runs
+            // down the image, so it is flipped to keep +Y pointing up
+            sc[i]::x <- ((cl[i]::x / cw) + 1) * 0.5 * w.
+            sc[i]::y <- (1 - (cl[i]::y / cw)) * 0.5 * h.
+            sc[i]::z <- cl[i]::z / cw.
+        ^
+    ^
+^
+
+// the face normal is taken in world space, so the light does not swim with the
+// camera. the result is clamped so no face goes fully black
+op triLight <- wld, ia, ib, ic, ea, eb, nrm, lgt, amb : $
+    vsub -> ea, 0, wld, ib, wld, ia.
+    vsub -> eb, 0, wld, ic, wld, ia.
+    vcross -> nrm, 0, ea, 0, eb, 0.
+    vnorm -> nrm, 0.
+
+    def d <- vdot -> nrm, 0, lgt, 0.
+
+    when, d < amb: d <- amb.
+    when, d > 1: d <- 1.
+
+    return d.
+^
+
+op drawTri <- f, z, sc, wld, t, pal, ea, eb, nrm, lgt, i, w, h, amb : $
+    def ia <- t[i]::a.
+    def ib <- t[i]::b.
+    def ic <- t[i]::c.
+
+    // nothing is clipped, only rejected - the scene is placed so that no
+    // vertex ever reaches the eye plane
+    when, sc[ia]::w <= 0: return 0.
+    when, sc[ib]::w <= 0: return 0.
+    when, sc[ic]::w <= 0: return 0.
+
+    def x0 <- sc[ia]::x.  def y0 <- sc[ia]::y.  def z0 <- sc[ia]::z.
+    def x1 <- sc[ib]::x.  def y1 <- sc[ib]::y.  def z1 <- sc[ib]::z.
+    def x2 <- sc[ic]::x.  def y2 <- sc[ic]::y.  def z2 <- sc[ic]::z.
+
+    // twice the signed area. screen y runs downward, which flips the sense of
+    // the winding, so a face pointing at the camera comes out negative
+    def area <- ((x1 - x0) * (y2 - y0)) - ((y1 - y0) * (x2 - x0)).
+
+    when, area >= 0: return 0.
+
+    def lit <- triLight -> wld, ia, ib, ic, ea, eb, nrm, lgt, amb.
+    def face <- t[i]::f.
+
+    def cr <- floor -> pal[face]::r * lit.
+    def cg <- floor -> pal[face]::g * lit.
+    def cb <- floor -> pal[face]::b * lit.
+
+    def minx <- x0.
+    when, x1 < minx: minx <- x1.
+    when, x2 < minx: minx <- x2.
+
+    def maxx <- x0.
+    when, x1 > maxx: maxx <- x1.
+    when, x2 > maxx: maxx <- x2.
+
+    def miny <- y0.
+    when, y1 < miny: miny <- y1.
+    when, y2 < miny: miny <- y2.
+
+    def maxy <- y0.
+    when, y1 > maxy: maxy <- y1.
+    when, y2 > maxy: maxy <- y2.
+
+    minx <- floor -> minx.
+    miny <- floor -> miny.
+    maxx <- floor -> maxx.
+    maxy <- floor -> maxy.
+
+    when, minx < 0: minx <- 0.
+    when, miny < 0: miny <- 0.
+    when, maxx > w - 1: maxx <- w - 1.
+    when, maxy > h - 1: maxy <- h - 1.
+
+    as, def py <- miny.(++) <= maxy: $
+        as, def px <- minx.(++) <= maxx: $
+            // one edge function per side, each opposite the vertex it skips.
+            // the three of them sum to the negative of the area term above, so
+            // a front facing triangle holds its inside pixels at e >= 0
+            def e0 <- ((px - x1) * (y2 - y1)) - ((py - y1) * (x2 - x1)).
+            def e1 <- ((px - x2) * (y0 - y2)) - ((py - y2) * (x0 - x2)).
+            def e2 <- ((px - x0) * (y1 - y0)) - ((py - y0) * (x1 - x0)).
+
+            when, e0 >= 0: $
+                when, e1 >= 0: $
+                    when, e2 >= 0: $
+                        def sum <- e0 + e1 + e2.
+
+                        when, sum != 0: $
+                            // NDC depth is affine across the screen, so a
+                            // straight barycentric blend of it is exact
+                            def d <- ((e0 * z0) + (e1 * z1) + (e2 * z2)) / sum.
+                            def at <- (py * w) + px.
+
+                            when, d < z[at]::v: $
+                                z[at]::v <- d.
+                                f[at]::r <- cr.
+                                f[at]::g <- cg.
+                                f[at]::b <- cb.
+                            ^
+                        ^
+                    ^
+                ^
+            ^
+        ^
+    ^
+
+    return 0.
+^
+
+
+// ----------------------------------------------------------------- main ----
+
+buildVerts -> verts, HALFSIDE.
+buildTris -> tris.
+buildPalette -> palette.
+clearBuffers -> fb, zb, PIXELS, BGR, BGG, BGB, FARDEPTH.
+
+mrotY -> roty, COS30, SIN30.
+mrotX -> rotx, COS20, SIN20.
+mmul -> model, rotx, roty.
+
+mtranslate -> viewm, 0, 0, CAMZ.
+mperspective -> projm, FOCAL, 1, NEARZ, FARZ.
+mmul -> vp, projm, viewm.
+
+transformVerts -> world, clip, scrn, verts, model, vp, WIDE, HIGH.
+
+// a key light from the front, above and to the right
+light[0]::x <- 0.4.
+light[0]::y <- 0.7.
+light[0]::z <- 1.
+vnorm -> light, 0.
+
+as, def i <- 0.(++) < 12:
+    drawTri -> fb, zb, scrn, world, tris, palette, edgeA, edgeB, normal, light, i, WIDE, HIGH, AMBIENT.
+
+write -> "/tmp/dis_cube.ppm", "P6\n256 256\n255\n", fb.
+
+log -> "wrote /tmp/dis_cube.ppm".

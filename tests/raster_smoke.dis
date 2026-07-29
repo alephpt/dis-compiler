@@ -1,0 +1,56 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// a single flat triangle at 32x32 - the rasterizer inner loop in miniature,
+// kept small enough to sit in the regression suite
+
+form RGB <- $
+    r <- u8.  g <- u8.  b <- u8.
+^
+
+def SIDE <- 32.
+def CELLS <- 32 * 32.
+
+def fb <- RGB[CELLS].
+
+op fill <- f, n, r, g, b : $
+    as, def i <- 0.(++) < n: $
+        f[i]::r <- r.
+        f[i]::g <- g.
+        f[i]::b <- b.
+    ^
+^
+
+// the same edge function scheme the cube uses, wound so that the inside of the
+// triangle holds every edge at or above zero
+op tri <- f, w, h, x0, y0, x1, y1, x2, y2, r, g, b : $
+    as, def py <- 0.(++) < h: $
+        as, def px <- 0.(++) < w: $
+            def e0 <- ((px - x1) * (y2 - y1)) - ((py - y1) * (x2 - x1)).
+            def e1 <- ((px - x2) * (y0 - y2)) - ((py - y2) * (x0 - x2)).
+            def e2 <- ((px - x0) * (y1 - y0)) - ((py - y0) * (x1 - x0)).
+
+            when, e0 >= 0: $
+                when, e1 >= 0: $
+                    when, e2 >= 0: $
+                        def at <- (py * w) + px.
+                        f[at]::r <- r.
+                        f[at]::g <- g.
+                        f[at]::b <- b.
+                    ^
+                ^
+            ^
+        ^
+    ^
+^
+
+fill -> fb, CELLS, 16, 18, 28.
+
+// wound so the area term comes out negative, the same sense the cube uses
+tri -> fb, SIDE, SIDE, 4, 4, 14, 28, 27, 9, 235, 120, 60.
+
+log -> fb[0]::r.
+log -> fb[(8 * 32) + 10]::r.
+
+write -> "/tmp/dis_raster_smoke.ppm", "P6\n32 32\n255\n", fb.
+
+log -> "wrote /tmp/dis_raster_smoke.ppm".
