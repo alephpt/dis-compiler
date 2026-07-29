@@ -1,0 +1,7 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// an unrecognised escape is a compile error, not a silent passthrough
+
+log -> "unknown \q escape".
+
+log -> "unreachable".

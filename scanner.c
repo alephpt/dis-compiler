@@ -209,9 +209,11 @@ static Token string(bool singleQ) {
         comp = '"';
     }
     while (peek() != comp && !ended()) {
-        if (peek() == '\\' && peekNext() == '\n') {
+        // an escaped character never closes the string - the escape itself is
+        // resolved later, at compile time
+        if (peek() == '\\' && peekNext() != '\0') {
+            if (peekNext() == '\n') { scanner.line++; }
             read_c();
-            scanner.line++;
         } else
         if (peek() == '\n') {
             return errToken("Unterminated string.");

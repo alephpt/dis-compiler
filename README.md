@@ -54,6 +54,49 @@ op main<-:$ log->adder->1,3. ^
 ```
 
 
+## strings
+
+A string is written between `"` or `'` and carries a length, not a terminator.
+
+**Escapes**
+
+Escapes are resolved once, at compile time, so a string holds real bytes and
+nothing downstream has to know an escape was ever written:
+
+```
+\n      newline         0x0A
+\r      carriage return 0x0D
+\0      null            0x00
+\\      backslash       0x5C
+\"      quote           0x22
+```
+
+Any other escape is a compile error rather than a silent passthrough, so
+`"\q"` and `"\t"` are both rejected.
+
+A `\` at the end of a source line continues the string onto the next line and
+carries the newline through:
+
+```
+def two <- "line one\
+line two".              // holds "line one\nline two"
+```
+
+**A string holds its length, so `\0` is an ordinary byte**
+
+Concatenation, comparison and `write` all work from the length, so bytes after
+an embedded `\0` are kept and still compare:
+
+```
+log -> ("before\0after" == "before").         // false - the lengths differ
+log -> ("a\0b" == "a\0c").                    // false - the byte after \0 counts
+```
+
+`log` prints through `%s` and therefore **stops at the first `\0`** —
+`log -> "before\0after".` prints `before`. The rest of the bytes are still
+there; only the display is cut short. Use `write` when the whole span matters.
+
+
 ## form — memory layout
 
 A `form` is a packed memory layout. Fields sit in declaration order at explicit

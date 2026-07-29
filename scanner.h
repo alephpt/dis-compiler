@@ -19,8 +19,9 @@ typedef enum {
     T_PERIOD,           // .                        - ends statement
     T_OPEN,             // $                        - start function body
     T_CLOSE,            // ^                        - closes body
-    T_RETURN,           // "return" 
+    T_RETURN,           // "return"
     T_LOG,              // "log"                    - print
+    T_WRITE,            // "write"                  - byte stream output
 
     // Arithmetic Operators
     T_PLUS,             // +                        - arithmetic add

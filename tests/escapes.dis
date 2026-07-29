@@ -1,0 +1,37 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// escapes are resolved at compile time, so a string carries real bytes
+
+log -> "alpha\nbeta".
+log -> "one\\backslash".
+log -> "a \"quoted\" word".
+log -> "\"".
+log -> "trailing newline\n".
+
+// a carriage return returns the cursor - 'second' lands over 'first'
+log -> "first\rsecond".
+
+// concatenation joins the translated bytes, not the source text
+log -> "left\n" + "right".
+log -> "\\" + "n".
+
+// an escape is one byte, so the layout of a form takes it like any other numeral
+form Byte <- $ v <- u8. ^
+def b <- Byte.
+b::v <- 10.
+log -> b::v.
+
+// a NUL is held by length, not by termination. log prints through %s and stops
+// at the NUL, which is expected - the bytes after it are still there
+def nul <- "before\0after".
+log -> nul.
+log -> nul + "tail".
+
+// equality compares the full length, so the bytes past the NUL still count
+log -> ("before\0after" == "before").
+log -> ("before\0after" == "before\0after").
+log -> ("a\0b" == "a\0c").
+
+// an empty string stays empty
+log -> "".
+log -> "" + "joined".

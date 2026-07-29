@@ -4,6 +4,7 @@
 #include "debug.h"
 #include "header.h"
 #include "compiler.h"
+#include "memory.h"
 #include "numeral.h"
 #include "scanner.h"
 
@@ -897,8 +898,55 @@ static void numeral (bool assignable) {
     return;
 }
 
+// escapes are resolved once, here, so the value carries real bytes and nothing
+// downstream has to know an escape ever existed. returns -1 on an unknown one
+static int translateEscapes (const char* raw, int rawLength, char* target) {
+    int length = 0;
+
+    for (int i = 0; i < rawLength; i++) {
+        if (raw[i] != '\\' || i + 1 == rawLength) {
+            target[length++] = raw[i];
+            continue;
+        }
+
+        switch (raw[++i]) {
+            case 'n':  target[length++] = '\n'; break;
+            case 'r':  target[length++] = '\r'; break;
+            case '0':  target[length++] = '\0'; break;
+            case '\\': target[length++] = '\\'; break;
+            case '"':  target[length++] = '"'; break;
+            // a trailing '\' continues the line and carries its newline through
+            case '\n': target[length++] = '\n'; break;
+            default:
+                prevErr("Unknown escape in string - use \\n, \\r, \\0, \\\\ or \\\".");
+                return -1;
+        }
+    }
+
+    return length;
+}
+
 static void string (bool assignable) {
-    valueEmitter(OBJECT_VALUE(copyString(parser.prev.start + 1, parser.prev.length - 2)));
+    // the token span carries its quotes, and translation never grows the text
+    int rawLength = parser.prev.length - 2;
+
+    if (rawLength < 0) { rawLength = 0; }
+
+    char* chars = ALLOCATE(char, rawLength + 1);
+    int length = translateEscapes(parser.prev.start + 1, rawLength, chars);
+
+    if (length < 0) {
+        FREE_ARRAY(char, chars, rawLength + 1);
+        return;
+    }
+
+    chars[length] = '\0';
+
+    if (length != rawLength) {
+        chars = EXPAND_ARRAY(char, chars, rawLength + 1, length + 1);
+    }
+
+    valueEmitter(OBJECT_VALUE(genString(chars, length)));
     return;
 }
 
