@@ -190,6 +190,84 @@ Field stores read naturally with the non decimal literals:
 ```
 
 
+## write — byte-stream output
+
+`write` emits raw bytes to a file. It mirrors `log`, but takes a path first and
+as many values as you like after it:
+
+```
+write -> path, value, value, ... .
+```
+
+The path and every value are ordinary expressions. All of them go out in one
+open/write/close, truncating whatever was at the path before — the same as
+`fopen` in `"wb"` mode.
+
+**What a value contributes**
+
+| Value | Bytes emitted |
+|---|---|
+| string | its own bytes — no NUL, no newline appended |
+| buffer | its whole packed region, `count * stride` bytes, verbatim |
+
+Anything else — a numeral, a boolean, `none`, a form descriptor, an operation —
+is a runtime error, as is a path that is not a string.
+
+**Nothing is written until everything checks out**
+
+Every value is validated before the file is opened, so a bad argument can never
+leave a truncated or half-written file behind. If the eighth of nine values is a
+numeral, the file on disk is untouched.
+
+A failure to open, write or close reports the reason from the system:
+
+```
+Write could not open '/proc/x/y' - No such file or directory.
+```
+
+**A PPM, hand built in pure dis**
+
+Because a form buffer is a flat linear region, an image file is just a header
+string and a buffer:
+
+```
+form RGB <- $
+    r <- u8.  g <- u8.  b <- u8.
+^
+
+def fb <- RGB[8 * 8].
+def y <- 0.
+
+while, y < 8: $
+    def x <- 0.
+
+    while, x < 8: $
+        fb[(y * 8) + x]::r <- x * 32.
+        fb[(y * 8) + x]::g <- y * 32.
+        fb[(y * 8) + x]::b <- 0x40.
+        x <- x + 1.
+    ^
+
+    y <- y + 1.
+^
+
+write -> "gradient.ppm", "P6\n8 8\n255\n", fb.
+```
+
+That is a valid binary PPM — 11 bytes of header followed by 192 bytes of packed
+RGB, which `file(1)` reports as `Netpbm image data, size = 8 x 8, rawbits,
+pixmap`.
+
+**Writing past a `\0`**
+
+`log` stops at the first `\0`, but `write` works from the length, so the whole
+span reaches the file:
+
+```
+write -> "out.bin", "before\0after".      // all 12 bytes land
+```
+
+
 **As Loop** (For Loop)
 ```
 // logic:

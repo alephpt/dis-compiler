@@ -34,6 +34,7 @@ typedef enum {
     SIG_ALLOCATE,
     SIG_MEMBER_ASSIGN,
     SIG_MEMBER_RETURN,
+    SIG_WRITE,
 } OpCode;
 
 // data

@@ -107,6 +107,7 @@ ParseRule rules[] = {
     [T_ID]               =             {variable,      NULL,       P_NONE},
     [T_EXECUTE]          =             {NULL,          call,       P_CALL},
     [T_LOG]              =             {NULL,          NULL,       P_NONE},
+    [T_WRITE]            =             {NULL,          NULL,       P_NONE},
     [T_MINUS]            =             {unary,         binary,     P_TERM},
     [T_PLUS]             =             {NULL,          binary,     P_TERM},
     [T_WHACK]            =             {NULL,          binary,     P_FACTOR},
@@ -333,6 +334,7 @@ static void rebase () {
             case T_WHEN:
             case T_WHILE:
             case T_LOG:
+            case T_WRITE:
             case T_RETURN:
                 return;
             default:
@@ -682,6 +684,31 @@ static void printStatement () {
     return;
 }
 
+// 'write -> path, value, ... .' - the path leads, every value follows it in the
+// order it was written. ',' carries no precedence, so each expression stops there
+static void writeStatement () {
+    uint8_t values = 0;
+
+    forceConsume(T_EXECUTE, "Expected '->' after 'write'.");
+    expression();
+    forceConsume(T_COMMA, "Expected ',' after the write path.");
+
+    do {
+        expression();
+
+        if (values == 255) {
+            prevErr("255 value limit exceeded in one write.");
+            break;
+        }
+
+        values++;
+    } while (match(T_COMMA));
+
+    forceConsume(T_PERIOD, "Expected '.' after the write values.");
+    emitBytes(SIG_WRITE, values);
+    return;
+}
+
 static void asStatement () {
     int increment = -1;
     int bodyJump = -1;
@@ -849,7 +876,8 @@ static void definition () {
 }
  
 static void statement () {
-    if (match(T_LOG)) { printStatement(); } else 
+    if (match(T_LOG)) { printStatement(); } else
+    if (match(T_WRITE)) { writeStatement(); } else
     if (match(T_AS)) { asStatement(); } else
     if (match(T_WHEN)) { whenStatement(); } else
     if (match(T_WHILE)) { whileStatement(); } else

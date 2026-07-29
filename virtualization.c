@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -123,6 +124,69 @@ static bool memberSlot (OString* name, uint8_t** slot, WidthT* width) {
 
     *slot = buffer->bytes + ((size_t)index * (size_t)buffer->form->stride) + field->offset;
     *width = field->width;
+    return true;
+}
+
+// a string contributes its own bytes, a buffer its whole packed region
+static const void* streamBytes (Value value, size_t* length) {
+    if (IS_STRING(value)) {
+        OString* string = AS_STRING(value);
+        *length = (size_t)string->length;
+        return string->chars;
+    }
+
+    OBuffer* buffer = AS_BUFFER(value);
+    *length = (size_t)buffer->count * (size_t)buffer->form->stride;
+    return buffer->bytes;
+}
+
+// 'write -> path, value, ... .' - the path sits under every value on the stack.
+// one open, one pass, one close, truncating whatever was at the path before
+static bool writeStream (int values) {
+    Value path = peek(values);
+
+    if (!IS_STRING(path)) {
+        runtimeErr("Write requires a string path.");
+        return false;
+    }
+
+    // every value is checked before the file is touched, so a bad argument can
+    // never leave a truncated or half written file behind
+    for (int i = values - 1; i >= 0; i--) {
+        if (!IS_STRING(peek(i)) && !IS_BUFFER(peek(i))) {
+            runtimeErr("Write requires strings or buffers.");
+            return false;
+        }
+    }
+
+    const char* target = AS_CSTRING(path);
+    FILE* file = fopen(target, "wb");
+
+    if (file == NULL) {
+        runtimeErr("Write could not open '%s' - %s.", target, strerror(errno));
+        return false;
+    }
+
+    for (int i = values - 1; i >= 0; i--) {
+        size_t length;
+        const void* bytes = streamBytes(peek(i), &length);
+
+        if (length == 0) { continue; }
+
+        if (fwrite(bytes, 1, length, file) != length) {
+            runtimeErr("Write failed on '%s' - %s.", target, strerror(errno));
+            fclose(file);
+            return false;
+        }
+    }
+
+    if (fclose(file) != 0) {
+        runtimeErr("Write could not close '%s' - %s.", target, strerror(errno));
+        return false;
+    }
+
+    // the path and every value leave together - a write yields nothing
+    vm.stackHead -= values + 1;
     return true;
 }
 
@@ -360,6 +424,11 @@ static Interpretation elucidate () {
                 if (!memberSlot(name, &slot, &width)) { return RUNTIME_ERROR; }
 
                 push(NUMERAL_VALUE(readWidth(slot, width)));
+                break;
+            }
+            case SIG_WRITE: {
+                int values = READ_INSTRUCTION();
+                if (!writeStream(values)) { return RUNTIME_ERROR; }
                 break;
             }
             case SIG_CALL: {

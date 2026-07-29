@@ -1,0 +1,59 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// write emits raw bytes - strings contribute their own, buffers their whole
+// packed region, and nothing is added or terminated on the way out
+
+form RGB <- $
+    r <- u8.
+    g <- u8.
+    b <- u8.
+^
+
+// a string writes its bytes verbatim - no NUL, no trailing newline
+write -> "/tmp/dis_write_string.bin", "dis".
+
+// escapes are already real bytes by the time write sees them
+write -> "/tmp/dis_write_escape.bin", "a\nb\r\\c\"d".
+
+// a NUL is an ordinary byte in a length tracked string, so it lands in the file
+// even though log cannot display past it
+write -> "/tmp/dis_write_nul.bin", "before\0after".
+
+// a buffer writes count * stride bytes of its packed region
+def px <- RGB[4].
+px[0]::r <- 0xDE.
+px[0]::g <- 0xAD.
+px[0]::b <- 0xBE.
+px[3]::r <- 0xFF.
+px[3]::b <- 0x11.
+write -> "/tmp/dis_write_buffer.bin", px.
+
+// values land in the order they were given
+write -> "/tmp/dis_write_multi.bin", "<", px, ">".
+
+// a zero length buffer contributes nothing
+def blank <- RGB[0].
+write -> "/tmp/dis_write_empty.bin", blank.
+
+// the path is an expression, and so is every value
+def stem <- "/tmp/dis_write_".
+write -> stem + "computed.bin", "path from an expression".
+
+// a write truncates whatever was there before
+write -> "/tmp/dis_write_truncate.bin", "a long first pass over the file".
+write -> "/tmp/dis_write_truncate.bin", "short".
+
+// a buffer built by a loop writes the bytes the loop put there
+def ramp <- RGB[8].
+def i <- 0.
+
+while, i < 8: $
+    ramp[i]::r <- i * 16.
+    ramp[i]::g <- 255 - (i * 16).
+    ramp[i]::b <- 0x80.
+    i <- i + 1.
+^
+
+write -> "/tmp/dis_write_ramp.bin", ramp.
+
+log -> "wrote".

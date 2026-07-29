@@ -154,10 +154,15 @@ static TType iType() {
             }
         case 'u': return checkWidth(len);
         case 'w':
-            if (len < 4 || scanner.start[1] != 'h') { return T_ID; }
-            switch (scanner.start[2]) {
-                case 'e': return checkWord(3, 1, "n", T_WHEN);
-                case 'i': return checkWord(3, 2, "le", T_WHILE);
+            if (len < 4) { return T_ID; }
+            switch (scanner.start[1]) {
+                case 'h':
+                    switch (scanner.start[2]) {
+                        case 'e': return checkWord(3, 1, "n", T_WHEN);
+                        case 'i': return checkWord(3, 2, "le", T_WHILE);
+                        default: return T_ID;
+                    }
+                case 'r': return checkWord(2, 3, "ite", T_WRITE);
                 default: return T_ID;
             }
         default: return T_ID;

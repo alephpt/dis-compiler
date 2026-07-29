@@ -1,0 +1,18 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// a numeral has no byte width of its own, so write refuses it
+
+form RGB <- $
+    r <- u8.
+    g <- u8.
+    b <- u8.
+^
+
+def px <- RGB[2].
+px[0]::r <- 1.
+
+write -> "/tmp/dis_write_err.bin", "a valid leading string".
+
+write -> "/tmp/dis_write_err.bin", px, 42.
+
+log -> "unreachable".

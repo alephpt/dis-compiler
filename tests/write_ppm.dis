@@ -1,0 +1,32 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// a binary PPM, hand built in pure dis - the header is a string, the pixels are
+// a packed buffer, and both go out in one write
+
+form RGB <- $
+    r <- u8.
+    g <- u8.
+    b <- u8.
+^
+
+def fb <- RGB[8 * 8].
+
+def y <- 0.
+
+while, y < 8: $
+    def x <- 0.
+
+    while, x < 8: $
+        // red climbs across, green climbs down, blue holds
+        fb[(y * 8) + x]::r <- x * 32.
+        fb[(y * 8) + x]::g <- y * 32.
+        fb[(y * 8) + x]::b <- 0x40.
+        x <- x + 1.
+    ^
+
+    y <- y + 1.
+^
+
+write -> "/tmp/dis_gradient.ppm", "P6\n8 8\n255\n", fb.
+
+log -> "wrote /tmp/dis_gradient.ppm".
