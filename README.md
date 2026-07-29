@@ -258,6 +258,21 @@ That is a valid binary PPM — 11 bytes of header followed by 192 bytes of packe
 RGB, which `file(1)` reports as `Netpbm image data, size = 8 x 8, rawbits,
 pixmap`.
 
+**Parenthesise a call used as a non-final value**
+
+A `->` call gathers its own comma-separated arguments and keeps gathering to the
+end of the statement, so a call that is not the last value in the list will
+swallow the values after it:
+
+```
+write -> path, tag -> 1, "AFTER".       // calls tag with 1 AND "AFTER"
+write -> path, (tag -> 1), "AFTER".     // right - two values
+```
+
+Usually the swallow is loud, because the call ends up with the wrong number of
+arguments and fails at runtime. It is silent when the count happens to match the
+operation's arity, so parenthesise any call that is not the final value.
+
 **Writing past a `\0`**
 
 `log` stops at the first `\0`, but `write` works from the length, so the whole
@@ -268,10 +283,98 @@ write -> "out.bin", "before\0after".      // all 12 bytes land
 ```
 
 
-**As Loop** (For Loop)
+## as — counted loop
+
 ```
-// logic:
-// as, initialization.(update expression) test condition
-as, def i <- 0.(++) < 7: 
+as, init.(update) comparison : statement
+```
+
+The left side of the comparison is **implied** — it is always the loop variable,
+so `(++) < 7` reads as "step `i` up by one, while `i < 7`":
+
+```
+as, def i <- 0.(++) < 7:
     log -> i.
 ```
+
+**init** either declares the loop variable with `def`, in which case the loop
+owns it and it does not survive the loop, or names one that already exists, in
+which case the loop mutates it and the value is still there afterwards:
+
+```
+def k <- 99.
+as, k <- 0.(++) < 3: log -> k.
+log -> k.                           // 3 - the loop wrote through to k
+```
+
+**update** is one of `++`, `--`, `+= expr`, `-= expr`, or empty:
+
+```
+as, def s <- 0.(+= 2) < 10:  log -> s.       // 0 2 4 6 8
+as, def d <- 5.(--) > 0:     log -> d.       // 5 4 3 2 1
+as, def t <- 9.(-= 3) > 0:   log -> t.       // 9 6 3
+```
+
+An empty update leaves the stepping to the body:
+
+```
+as, def e <- 0.() < 3: $
+    log -> e.
+    e <- e + 1.
+^
+```
+
+**comparison** is one of `<`, `>`, `<=`, `>=`, `==`, `!=` followed by an
+expression. Leaving it out runs the loop forever. The body is a single
+statement, so use `$ ... ^` for more than one.
+
+Loops nest the way you would expect:
+
+```
+as, def y <- 0.(++) < 3: $
+    as, def x <- 0.(++) < 4: $
+        log -> (y * 10) + x.
+    ^
+^
+```
+
+
+## % — modulo
+
+`%` binds as tightly as `*` and `/` and carries the sign of the dividend:
+
+```
+log -> 10 % 3.          // 1
+log -> 7.5 % 2.         // 1.5
+log -> 2 + 10 % 4.      // 4
+log -> 0 - 7 % 3.       // -1
+```
+
+`x % 0` answers NaN, the same way `x / 0` answers infinity — neither is an
+error.
+
+
+## natives
+
+A handful of operations are implemented in C. They are ordinary values called
+with the same `->` an operation uses:
+
+```
+log -> sqrt -> 9.               // 3
+log -> sqrt -> 2.               // 1.41421
+log -> floor -> 7 / 2.          // 3
+log -> floor -> 0 - 1.5.        // -2
+log -> sqrt.                    // <native sqrt>
+
+op len <- x, y : $ ^(sqrt -> x*x + y*y)
+log -> len -> 3, 4.             // 5
+```
+
+| native | arity | answers |
+|---|---|---|
+| `sqrt` | 1 | the square root of a numeral |
+| `floor` | 1 | the numeral rounded down to a whole number |
+
+A native checks its own arity and argument types, and a mismatch is a clean
+runtime error.
+

@@ -1,0 +1,34 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// natives are called with the same '->' an operation uses
+
+log -> sqrt -> 9.
+log -> sqrt -> 2.
+log -> sqrt -> 0.
+log -> floor -> 7 / 2.
+log -> floor -> 0 - 1.5.
+log -> floor -> 4.
+
+// a native is a value, so it prints like one
+log -> sqrt.
+log -> floor.
+
+// the argument is a full expression
+log -> sqrt -> 3 * 3 + 16.
+log -> floor -> 10 % 3 + 0.9.
+
+// and natives compose with operations
+op len <- x, y : $ ^(sqrt -> x*x + y*y)
+
+log -> len -> 3, 4.
+log -> len -> 5, 12.
+
+op scaled <- v, by : $
+    return floor -> v * by.
+^
+
+log -> scaled -> 2.7, 10.
+
+// nested native calls
+log -> floor -> sqrt -> 50.
+log -> sqrt -> floor -> 16.9.

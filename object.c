@@ -79,6 +79,14 @@ OString* copyString (const char* chars, int len) {
     return op;
  }
 
+ONative* newNative (NativeOp op, int arity, const char* name) {
+    ONative* native = ALLOCATE_OBJECT(ONative, O_NATIVE);
+    native->op = op;
+    native->arity = arity;
+    native->name = name;
+    return native;
+}
+
 static void printOperation (OOperation* op) {
     if (op->name == NULL) {
         printf("<script>");
@@ -232,6 +240,9 @@ void printObject (Value value) {
             break;
         case O_FORM:
             printf("<form %s>", AS_FORM(value)->name->chars);
+            break;
+        case O_NATIVE:
+            printf("<native %s>", AS_NATIVE(value)->name);
             break;
         case O_BUFFER: {
             OBuffer* buffer = AS_BUFFER(value);

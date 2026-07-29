@@ -1,0 +1,94 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// as, init.(update) comparison : statement
+// the left side of the comparison is implied - it is always the loop variable
+
+log -> "-- README form --".
+
+as, def i <- 0.(++) < 3:
+    log -> i.
+
+log -> "-- step by two --".
+
+as, def s <- 0.(+= 2) < 10:
+    log -> s.
+
+log -> "-- countdown --".
+
+as, def d <- 5.(--) > 0:
+    log -> d.
+
+log -> "-- step down by three --".
+
+as, def t <- 9.(-= 3) > 0:
+    log -> t.
+
+log -> "-- inequality holds the loop --".
+
+as, def n <- 0.(++) != 4:
+    log -> n.
+
+log -> "-- a block body --".
+
+as, def b <- 0.(++) < 3: $
+    log -> b.
+    log -> b * 10.
+^
+
+log -> "-- an empty update, stepped by the body --".
+
+as, def e <- 0.() < 3: $
+    log -> e.
+    e <- e + 1.
+^
+
+log -> "-- the loop variable is scoped to the loop --".
+
+def i <- 100.
+
+as, def i <- 0.(++) < 2:
+    log -> i.
+
+log -> i.
+
+log -> "-- a non-def initializer mutates the outer variable --".
+
+def k <- 99.
+
+as, k <- 0.(++) < 3:
+    log -> k.
+
+log -> k.
+
+log -> "-- nested, a scanline shape --".
+
+as, def y <- 0.(++) < 3: $
+    as, def x <- 0.(++) < 4: $
+        log -> (y * 10) + x.
+    ^
+^
+
+log -> "-- the loop cooperates with forms --".
+
+form RGB <- $
+    r <- u8.
+    g <- u8.
+    b <- u8.
+^
+
+def fb <- RGB[6].
+
+as, def p <- 0.(++) < 6: $
+    fb[p]::r <- p * 40.
+    fb[p]::g <- p % 3.
+^
+
+as, def q <- 0.(++) < 6:
+    log -> fb[q]::r.
+
+log -> fb[4]::g.
+
+log -> "-- and with natives --".
+
+as, def v <- 0.(++) < 4:
+    log -> floor -> sqrt -> v * 10.

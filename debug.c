@@ -47,6 +47,7 @@ int stripCommand (Sequence* seq, int offset) {
             seq->code[offset] == OP_GREATER_THAN ||
             seq->code[offset] == SIG_NEG ||
             seq->code[offset] == SIG_DIV ||
+            seq->code[offset] == SIG_MOD ||
             seq->code[offset] == SIG_ADD ||
             seq->code[offset] == SIG_MULT ||
             seq->code[offset] == SIG_SUB ||
@@ -110,6 +111,8 @@ int stripCommand (Sequence* seq, int offset) {
             return instruct("SIG_MULT", offset);
         case SIG_DIV:
             return instruct("SIG_DIV", offset);
+        case SIG_MOD:
+            return instruct("SIG_MOD", offset);
         case SIG_NOT:
             return instruct("SIG_NOT", offset);
         case SIG_NEG:

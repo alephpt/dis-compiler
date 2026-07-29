@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -60,11 +61,30 @@ static bool call (OOperation* op, int args) {
     return true;
 }
 
+// a native runs to completion inside the caller's frame - no CallFrame is pushed
+static bool callNative (ONative* native, int args) {
+    Value result;
+
+    if (args != native->arity) {
+        runtimeErr("Expected %d arguements, but only received %d.", native->arity, args);
+        return false;
+    }
+
+    if (!native->op(args, vm.stackHead - args, &result)) { return false; }
+
+    // the arguments and the native itself leave together
+    vm.stackHead -= args + 1;
+    push(result);
+    return true;
+}
+
 static bool callValue (Value called, int args) {
     if (IS_OBJECT(called)) {
         switch (OBJECT_TYPE(called)) {
             case O_OPERATION:
                 return call(AS_OPERATION(called), args);
+            case O_NATIVE:
+                return callNative(AS_NATIVE(called), args);
             default:
                 break;
         }
@@ -206,11 +226,62 @@ static void concatenation () {
     push(OBJECT_VALUE(newString));
 }
 
+ // NATIVE OPERATIONS //
+
+typedef struct {
+    const char* name;
+    NativeOp op;
+    int arity;
+} NativeEntry;
+
+static bool nativeSqrt (int args, Value* argv, Value* result) {
+    (void)args;
+
+    if (!IS_NUMERAL(argv[0])) {
+        runtimeErr("sqrt requires a numeral.");
+        return false;
+    }
+
+    *result = NUMERAL_VALUE(sqrt(AS_NUMERAL(argv[0])));
+    return true;
+}
+
+static bool nativeFloor (int args, Value* argv, Value* result) {
+    (void)args;
+
+    if (!IS_NUMERAL(argv[0])) {
+        runtimeErr("floor requires a numeral.");
+        return false;
+    }
+
+    *result = NUMERAL_VALUE(floor(AS_NUMERAL(argv[0])));
+    return true;
+}
+
+// one row per native - the whole registration cost of adding another
+static const NativeEntry natives[] = {
+    { "sqrt",  nativeSqrt,  1 },
+    { "floor", nativeFloor, 1 },
+};
+
+static void defineNatives () {
+    for (int i = 0; i < (int)(sizeof(natives) / sizeof(NativeEntry)); i++) {
+        OString* name = copyString(natives[i].name, (int)strlen(natives[i].name));
+        ONative* native = newNative(natives[i].op, natives[i].arity, natives[i].name);
+
+        setTable(&vm.globals, name, OBJECT_VALUE(native));
+    }
+
+    return;
+}
+
 void initVM () {
     resetStack();
     vm.objectHead = NULL;
     initTable(&vm.globals);
     initTable(&vm.strings);
+    // interning needs both tables standing, so the natives land last
+    defineNatives();
     return;
 }
 
@@ -358,6 +429,19 @@ static Interpretation elucidate () {
             }
             case SIG_DIV: {
                 BINARY_OP(NUMERAL_VALUE, /);
+                break;
+            }
+            case SIG_MOD: {
+                // fmod carries the sign of the dividend, and x % 0 gives NaN the
+                // same way x / 0 gives inf - neither is an error here
+                if (!IS_NUMERAL(peek(0)) || !IS_NUMERAL(peek(1))) {
+                    runtimeErr("Operands must be numeral types.");
+                    return RUNTIME_ERROR;
+                }
+
+                double divisor = AS_NUMERAL(pop());
+                double dividend = AS_NUMERAL(pop());
+                push(NUMERAL_VALUE(fmod(dividend, divisor)));
                 break;
             }
             case SIG_NOT: {

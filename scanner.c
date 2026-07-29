@@ -309,10 +309,12 @@ Token scanToken () {
         case '.': return genToken(T_PERIOD);
         case ',': return genToken(T_COMMA);
         case ':': return genToken( match(':') ? T_MEMBER : T_PARAM_END );
-        case '+': return genToken(T_PLUS);
-        case '-': return genToken( match('>') ? T_EXECUTE : match('-') ? T_DECREMENT : T_MINUS);
+        case '+': return genToken( match('+') ? T_INCREMENT : match('=') ? T_PLUS_EQ : T_PLUS);
+        // '->' must be tested first - it is the call operator, not a minus
+        case '-': return genToken( match('>') ? T_EXECUTE : match('-') ? T_DECREMENT : match('=') ? T_MINUS_EQ : T_MINUS);
         case '*': return genToken(T_STAR);
         case '/': return genToken(T_WHACK);
+        case '%': return genToken(T_MOD);
         case '_': return genToken(T_UNDER);
         case '?': return genToken(T_QUEST);
         case '$': return genToken(T_OPEN);

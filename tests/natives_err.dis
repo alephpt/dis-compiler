@@ -1,0 +1,9 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// a native checks its arity like any other operation
+
+log -> sqrt -> 9.
+
+log -> sqrt -> 9, 16.
+
+log -> "unreachable".

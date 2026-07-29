@@ -21,6 +21,7 @@ typedef enum {
     SIG_SUB,
     SIG_MULT,
     SIG_DIV,
+    SIG_MOD,
     SIG_LOOP,
     SIG_JUMP,
     SIG_EXECUTE,

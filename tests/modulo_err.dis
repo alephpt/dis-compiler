@@ -1,0 +1,9 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// modulo is arithmetic - a string has no remainder
+
+log -> 10 % 3.
+
+log -> "a" % 2.
+
+log -> "unreachable".

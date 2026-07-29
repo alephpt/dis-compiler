@@ -112,14 +112,17 @@ ParseRule rules[] = {
     [T_PLUS]             =             {NULL,          binary,     P_TERM},
     [T_WHACK]            =             {NULL,          binary,     P_FACTOR},
     [T_STAR]             =             {NULL,          binary,     P_FACTOR},
-    [T_MOD]              =             {NULL,          NULL,       P_NONE},
+    [T_MOD]              =             {NULL,          binary,     P_FACTOR},
     [T_POWER]            =             {NULL,          NULL,       P_NONE},
     [T_INCREMENT]        =             {NULL,          NULL,       P_NONE},
     [T_DECREMENT]        =             {NULL,          NULL,       P_NONE},
-    [T_PLUS_EQ]          =             {NULL,          binary,     P_NONE},
-    [T_MINUS_EQ]         =             {NULL,          binary,     P_NONE},
-    [T_EQ_PLUS]          =             {NULL,          binary,     P_NONE},
-    [T_EQ_MINUS]         =             {NULL,          binary,     P_NONE},
+    // compound assignment is a statement form, handled by the 'as' loop update -
+    // never an infix expression. binary() has no case for these, so routing them
+    // through it would consume an operand and emit nothing, corrupting the stack
+    [T_PLUS_EQ]          =             {NULL,          NULL,       P_NONE},
+    [T_MINUS_EQ]         =             {NULL,          NULL,       P_NONE},
+    [T_EQ_PLUS]          =             {NULL,          NULL,       P_NONE},
+    [T_EQ_MINUS]         =             {NULL,          NULL,       P_NONE},
     [T_AND_OP]           =             {NULL,          andComp,    P_AND},
     [T_OR_OP]            =             {NULL,          orComp,     P_OR},
     [T_GREATER]          =             {NULL,          binary,     P_COMPARE},
@@ -685,7 +688,12 @@ static void printStatement () {
 }
 
 // 'write -> path, value, ... .' - the path leads, every value follows it in the
-// order it was written. ',' carries no precedence, so each expression stops there
+// order it was written.
+//
+// ',' carries no precedence, so an ordinary expression ends at one. A '->' call
+// does not: arguments() consumes commas itself and swallows the rest of the list
+// as its own arguments. A call anywhere but the final position has to be
+// parenthesised - '(f -> x), next' - or it eats 'next'.
 static void writeStatement () {
     uint8_t values = 0;
 
@@ -709,58 +717,158 @@ static void writeStatement () {
     return;
 }
 
+// the loop variable is read and written by name - a local slot when the loop
+// declared it, the global binding when the loop only borrows an existing one
+static void loopVarLoad (Token name) {
+    int local = findLocality(current, &name);
+
+    if (local != -1) {
+        emitBytes(SIG_LOCAL_RETURN, (uint8_t)local);
+        return;
+    }
+
+    emitBytes(SIG_GLOBAL_RETURN, identifier(&name));
+    return;
+}
+
+static void loopVarStore (Token name) {
+    int local = findLocality(current, &name);
+
+    if (local != -1) {
+        emitBytes(SIG_LOCAL_ASSIGN, (uint8_t)local);
+        return;
+    }
+
+    emitBytes(SIG_GLOBAL_ASSIGN, identifier(&name));
+    return;
+}
+
+// 'def i <- 0' makes the loop own the variable, 'i <- 0' borrows one that exists
+static bool asInitializer (Token* loopVar) {
+    bool declared = match(T_DEFINE);
+
+    forceConsume(T_ID, "Expected a loop variable in the 'as' initializer.");
+    *loopVar = parser.prev;
+
+    if (declared) { declareDefinition(); }
+
+    forceConsume(T_ASSIGN, "Expected '<-' after the 'as' loop variable.");
+    expression();
+
+    if (declared) {
+        // the initializer's value stays put - it is the slot of the new local
+        initializeDefinition();
+    } else {
+        // an assignment yields its value, and nothing here consumes it
+        loopVarStore(*loopVar);
+        byteEmitter(SIG_POP);
+    }
+
+    forceConsume(T_PERIOD, "Expected '.' after the 'as' initializer.");
+    return declared;
+}
+
+// '++' '--' '+= expr' '-= expr' - every form reads, steps and stores the loop var
+static void asUpdate (Token loopVar) {
+    if (match(T_INCREMENT) || match(T_DECREMENT)) {
+        TType step = parser.prev.type;
+
+        loopVarLoad(loopVar);
+        valueEmitter(NUMERAL_VALUE(1));
+        byteEmitter(step == T_INCREMENT ? SIG_ADD : SIG_SUB);
+        loopVarStore(loopVar);
+        byteEmitter(SIG_POP);
+        return;
+    }
+
+    if (match(T_PLUS_EQ) || match(T_MINUS_EQ)) {
+        TType step = parser.prev.type;
+
+        loopVarLoad(loopVar);
+        expression();
+        byteEmitter(step == T_PLUS_EQ ? SIG_ADD : SIG_SUB);
+        loopVarStore(loopVar);
+        byteEmitter(SIG_POP);
+        return;
+    }
+
+    currentErr("Expected '++', '--', '+= expr' or '-= expr' in the 'as' update.");
+    return;
+}
+
+// the left side of the condition is implied - it is always the loop variable,
+// so 'as, def i <- 0.(++) < 7:' reads as 'i < 7'
+static int asCondition (Token loopVar) {
+    ParseRule* rule = getRule(parser.current.type);
+
+    loopVarLoad(loopVar);
+
+    if (rule->infix != binary ||
+        rule->precedence < P_EQUALS || rule->precedence > P_COMPARE) {
+        currentErr("Expected a comparison after the 'as' update.");
+        return -1;
+    }
+
+    stepThrough();
+    binary(false);
+
+    return jumpEmitter(SIG_EXECUTE);
+}
+
+// 'as, init.(update) [comparison] : statement'
+//
+//          init
+//          SIG_JUMP ─────────► cond      (the update is skipped on pass one)
+//  update: <update>
+//  cond:   <loop var> <rhs> <compare>
+//          SIG_EXECUTE ──────► exit
+//          SIG_POP
+//          <body>
+//          SIG_LOOP ─────────► update
+//  exit:   SIG_POP
+//
+// with no update the loop returns to cond, and with no condition it returns to
+// the body and runs forever
 static void asStatement () {
-    int increment = -1;
-    int bodyJump = -1;
-    int variable;
-    Token* var;
+    Token loopVar;
+    int exitJump = -1;
+
+    // the loop owns its scope, so a declared loop variable is a true local even
+    // when the loop sits at the top level
     beginScope();
     forceConsume(T_COMMA, "Expected ',' after 'as'.");
 
-    if (match(T_DEFINE)) {
-        var = &parser.current;
-        variable = parseDefinition("Initializer required for 'as' clause.");
-        //defineVariable(variable);
-        forceConsume(T_ASSIGN, "Expected '<-' after 'as' initializer definition.");
-        declaration();
-        forceConsume(T_L_PAR, "Expected '[' before 'as' iterator.");
-    } else {
-        var = &parser.current;
-        variable = parseDefinition("Initializer required for 'as' clause.");
-        //defineVariable(variable);
-        forceConsume(T_PERIOD, "Expected '.' after as initializer.");
-        forceConsume(T_L_PAR, "Expected '(' before 'as' iterator.");
+    asInitializer(&loopVar);
+
+    forceConsume(T_L_PAR, "Expected '(' before the 'as' update.");
+
+    bool stepped = !check(T_R_PAR);
+    int updateJump = stepped ? jumpEmitter(SIG_JUMP) : -1;
+    int loopTarget = currentSequence()->inventory;
+
+    if (stepped) {
+        asUpdate(loopVar);
+        landJump(updateJump);
     }
 
-    int loopStart = currentSequence()->inventory;
-    int exitJump = -1;
+    forceConsume(T_R_PAR, "Expected ')' after the 'as' update.");
 
-    if (!match(T_R_PAR)) {
-        int bodyJump = jumpEmitter(SIG_JUMP);
-        int start = currentSequence()->inventory;
+    if (!check(T_PARAM_END)) {
+        exitJump = asCondition(loopVar);
 
-        variableName(*var, true);
-        expression();
-        byteEmitter(SIG_POP);
-
-        forceConsume(T_R_PAR, "Expected ')' after 'as' clauses.");
-
-        loopEmitter(loopStart);
-        loopStart = start;
-        landJump(bodyJump);
+        if (exitJump != -1) { byteEmitter(SIG_POP); }
     }
 
-    if (!match(T_PARAM_END)) {
-        defineVariable(variable);
-        binary(false);
+    forceConsume(T_PARAM_END, "Expected ':' after the 'as' clauses.");
 
-        forceConsume(T_PARAM_END, "Expected ':' in 'as' loop.");
-        exitJump = jumpEmitter(SIG_EXECUTE);
-        byteEmitter(SIG_POP);
+    // a malformed header leaves nothing coherent to attach a body to
+    if (parser.panic) {
+        endScope();
+        return;
     }
 
     statement();
-    loopEmitter(loopStart);
+    loopEmitter(loopTarget);
 
     if (exitJump != -1) {
         landJump(exitJump);
@@ -1081,6 +1189,7 @@ static void binary (bool assignable) {
         case T_MINUS:   byteEmitter(SIG_SUB); break;
         case T_STAR:    byteEmitter(SIG_MULT); break;
         case T_WHACK:   byteEmitter(SIG_DIV); break;
+        case T_MOD:     byteEmitter(SIG_MOD); break;
         default: return;
     }
     return;

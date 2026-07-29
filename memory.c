@@ -44,6 +44,11 @@ static void freeObj (Obj* o) {
             FREE(OBuffer, o);
             break;
         }
+        case O_NATIVE: {
+            // the name is static storage from the natives table - nothing to free
+            FREE(ONative, o);
+            break;
+        }
         default: {
             FREE(Obj, o);
             break;

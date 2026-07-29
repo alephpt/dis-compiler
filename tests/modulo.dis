@@ -1,0 +1,38 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// modulo carries the sign of the dividend and binds as tightly as * and /
+
+log -> 10 % 3.
+log -> 7.5 % 2.
+log -> 2 + 10 % 4.
+log -> 0 - 7 % 3.
+
+// same precedence as multiply, so it associates left to right
+log -> 10 % 3 * 2.
+log -> 2 * 10 % 4.
+
+// a modulo by zero answers NaN, the same way a divide by zero answers infinity
+def nan <- 5 % 0.
+log -> nan == nan.
+
+// the classic use - wrapping an index back into range
+def width <- 8.
+def i <- 0.
+
+while, i < 20: $
+    when, i % 8 == 0:
+        log -> i.
+    i <- i + 1.
+^
+
+// and picking out every other element
+def evens <- 0.
+def j <- 0.
+
+while, j < 10: $
+    when, j % 2 == 0:
+        evens <- evens + j.
+    j <- j + 1.
+^
+
+log -> evens.

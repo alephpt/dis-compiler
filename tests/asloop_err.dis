@@ -1,0 +1,8 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// the update accepts '++', '--', '+= expr' or '-= expr' and nothing else
+
+as, def i <- 0.(**) < 3:
+    log -> i.
+
+log -> "unreachable".

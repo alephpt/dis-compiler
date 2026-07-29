@@ -1,0 +1,9 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// and it checks the type of what it is handed
+
+log -> floor -> 2.5.
+
+log -> floor -> "not a numeral".
+
+log -> "unreachable".

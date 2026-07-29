@@ -10,11 +10,13 @@
 #define IS_OPERATION(value) isObjType(value, O_OPERATION)
 #define IS_FORM(value)      isObjType(value, O_FORM)
 #define IS_BUFFER(value)    isObjType(value, O_BUFFER)
+#define IS_NATIVE(value)    isObjType(value, O_NATIVE)
 #define AS_STRING(value)    ((OString*)AS_OBJECT(value))
 #define AS_CSTRING(value)   (((OString*)AS_OBJECT(value))->chars)
 #define AS_OPERATION(value) ((OOperation*)AS_OBJECT(value))
 #define AS_FORM(value)      ((OForm*)AS_OBJECT(value))
 #define AS_BUFFER(value)    ((OBuffer*)AS_OBJECT(value))
+#define AS_NATIVE(value)    ((ONative*)AS_OBJECT(value))
 
 typedef enum {
     O_PILOT,
@@ -24,6 +26,7 @@ typedef enum {
     O_OBJ,
     O_FORM,
     O_BUFFER,
+    O_NATIVE,
 } ObjectT;
 
 // the explicit width of a single form field - the layout is the type
@@ -76,9 +79,22 @@ typedef struct {
     int count;
 } OBuffer;
 
+// a native reports its own failure through runtimeErr and answers false - the
+// vm then unwinds exactly as it would for any other runtime error
+typedef bool (*NativeOp)(int args, Value* argv, Value* result);
+
+// an operation implemented in C. the name is static storage, never freed
+typedef struct {
+    Obj object;
+    NativeOp op;
+    int arity;
+    const char* name;
+} ONative;
+
 OString* genString (char* chars, int len);
 OString* copyString (const char* chars, int len);
 OOperation* newOperation ();
+ONative* newNative (NativeOp op, int arity, const char* name);
 int widthSize (WidthT width);
 bool findWidth (const char* chars, int len, WidthT* width);
 OForm* newForm (OString* name, const FormField* fields, int fieldCount);
