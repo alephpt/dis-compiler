@@ -1,0 +1,82 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// the raster core - whole surface fills, clamped scanline runs, and reading a
+// file straight back into a buffer
+
+form Px <- $
+    v <- u32.
+^
+
+form Byte <- $
+    v <- u8.
+^
+
+def fb <- Px[4 * 4].
+
+// clear paints every element and answers how many
+log -> clear -> fb, 0xFF00FF00.
+log -> fb[0]::v == 0xFF00FF00.
+log -> fb[15]::v == 0xFF00FF00.
+
+// a colour whose bytes all agree takes the memset path
+log -> clear -> fb, 0x7F7F7F7F.
+log -> fb[9]::v == 0x7F7F7F7F.
+
+log -> clear -> fb, 0.
+log -> fb[0]::v.
+
+// hspan fills one run of one row and answers the pixels written
+log -> hspan -> fb, 4, 1, 1, 2, 0x11223344.
+log -> fb[4]::v.
+log -> fb[5]::v == 0x11223344.
+log -> fb[6]::v == 0x11223344.
+log -> fb[7]::v.
+
+// the ends clamp into the row rather than spilling into its neighbours
+log -> hspan -> fb, 4, 2, 0 - 5, 99, 0xAABBCCDD.
+log -> fb[8]::v == 0xAABBCCDD.
+log -> fb[11]::v == 0xAABBCCDD.
+log -> fb[12]::v.
+
+// a row outside the surface writes nothing
+log -> hspan -> fb, 4, 4, 0, 1, 1.
+log -> hspan -> fb, 4, 0 - 1, 0, 1, 1.
+
+// and a run that ends before it starts writes nothing
+log -> hspan -> fb, 4, 0, 3, 1, 1.
+log -> fb[0]::v.
+
+// read is the inverse of write, and fills as much as the buffer can hold
+def out <- Byte[5].
+out[0]::v <- 72.  out[1]::v <- 69.  out[2]::v <- 76.  out[3]::v <- 76.  out[4]::v <- 79.
+write -> "/tmp/dis_read_test.bin", out.
+
+def back <- Byte[5].
+log -> read -> "/tmp/dis_read_test.bin", back.
+log -> back[0]::v.
+log -> back[4]::v.
+
+// a buffer smaller than the file takes only what fits
+def small <- Byte[3].
+log -> read -> "/tmp/dis_read_test.bin", small.
+log -> small[0]::v.
+log -> small[2]::v.
+
+// a buffer larger than the file keeps the rest of its own contents, and a
+// fresh buffer starts zeroed
+def big <- Byte[8].
+log -> read -> "/tmp/dis_read_test.bin", big.
+log -> big[4]::v.
+log -> big[5]::v.
+
+// reading into a zero length buffer is legal and moves nothing
+def empty <- Byte[0].
+log -> read -> "/tmp/dis_read_test.bin", empty.
+
+// a surface of any width works the same way
+def wide <- Px[8 * 2].
+clear -> wide, 0.
+log -> hspan -> wide, 8, 1, 2, 5, 0x01020304.
+log -> wide[8 + 2]::v == 0x01020304.
+log -> wide[8 + 5]::v == 0x01020304.
+log -> wide[8 + 6]::v.

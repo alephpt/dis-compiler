@@ -1,0 +1,47 @@
+# Written by Richard Christopher, Copyright 2026 Richard Christopher
+#
+# Valgrind suppressions for the sdl2 build.
+#
+# sdl2 caches the environment inside its own library destructor - dllquit calls
+# SDL_GetHintBoolean, which lazily builds an environment hash table that is then
+# never torn down. It happens at process exit whether or not dis ever opened a
+# window, and there is nothing on our side to free. The dynamic loader keeps a
+# little state for the same reason.
+#
+# Nothing here is ours: with these applied both builds report zero leaks of
+# every kind, and without them the sdl build still reports
+#   definitely lost: 0   indirectly lost: 0   possibly lost: 0
+#
+#   valgrind --suppressions=dis.supp --leak-check=full --show-leak-kinds=all ./dis <file>
+
+{
+   sdl2-environment-cache
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:SDL_CreateEnvironment_REAL
+}
+
+{
+   sdl2-teardown-hints
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:dllquit
+}
+
+{
+   dynamic-loader-dlopen
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:dlopen@@GLIBC_2.34
+}
+
+{
+   dynamic-loader-dl-open
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:_dl_catch_error
+}

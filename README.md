@@ -393,6 +393,40 @@ op clamp <- v, lo, hi : $
 ^
 ```
 
+**Raster core**
+
+These write pixels from C, which is the only way a 4K surface is affordable —
+filling one from dis costs about 1.1 seconds, and `clear` does it in under 7ms.
+
+| native | arity | answers |
+|---|---|---|
+| `clear` | 2 | fills every element of a four-byte-element buffer, answering the count |
+| `hspan` | 6 | `hspan -> fb, w, y, x0, x1, rgba.` — one clamped run of one row, answering the pixels written |
+| `read` | 2 | `read -> path, buf.` — fills a buffer from a file, answering the bytes read |
+
+`clear` and `hspan` insist on a buffer whose elements are exactly four bytes
+wide — a `u32` packed pixel. `hspan` clamps `x0` and `x1` into the row rather
+than spilling into its neighbours, and writes nothing at all for a row outside
+the surface or a run that ends before it starts:
+
+```
+form Px <- $ v <- u32. ^
+
+def fb <- Px[640 * 480].
+
+clear -> fb, 0xFF201814.
+hspan -> fb, 640, 100, 0 - 20, 999, 0xFFFFFFFF.   // clamped to the whole row
+```
+
+`read` is the inverse of `write`. It never resizes — it fills as much of the
+buffer as the file has bytes for, so the caller `grow`s first:
+
+```
+def bytes <- Byte[0].
+grow -> bytes, 4096.
+def got <- read -> "scene.dat", bytes.
+```
+
 **Buffers**
 
 | native | arity | answers |
@@ -478,3 +512,94 @@ Operands must be of the same type.
 [main.dis: line 9] in script
 ```
 
+
+## display
+
+A window, if dis was built with sdl2. `compile.sh` looks for it with
+`pkg-config` and defines `DIS_DISPLAY` when it is there. **The build succeeds
+either way** — without sdl2 the window natives are simply never registered, so
+naming one is an ordinary undefined variable rather than a link failure. `clock`
+is always present; it has no sdl in it.
+
+sdl itself is only started inside `display`, so a program that never opens a
+window never touches the video subsystem.
+
+| native | arity | answers |
+|---|---|---|
+| `display` | 3 | `display -> w, h, "title".` opens the window |
+| `blit` | 3 | `blit -> fb, w, h.` copies a buffer to the window, one pixel to one pixel |
+| `present` | 0 | shows what was blitted |
+| `pump` | 0 | drains the event queue, answering how many events it saw |
+| `quitting` | 0 | true once the window has been asked to close |
+| `mousex` `mousey` | 0 | where the pointer is now |
+| `button` | 1 | true while mouse button n is held |
+| `clicked` | 1 | true if button n went down during the last `pump` |
+| `wheel` | 0 | how far the wheel turned during the last `pump` |
+| `key` | 1 | true while the named key is held, as in `key -> "Escape"` |
+| `pressed` | 1 | true if the named key went down during the last `pump` |
+| `shut` | 0 | closes the window |
+| `clock` | 0 | milliseconds from a monotonic clock, in every build |
+
+`blit` wants the buffer to match the window exactly — `w * h` elements, and the
+same `w` and `h` the display was opened with. Four-byte elements are read as
+RGBA, three-byte elements as RGB.
+
+Everything `clicked`, `pressed` and `wheel` report belongs to the most recent
+`pump` and is cleared by the next one.
+
+**The frame loop**
+
+```
+form Px <- $ v <- u32. ^
+
+def WIDE <- 1280.
+def HIGH <- 720.
+def fb <- Px[1280 * 720].
+
+display -> WIDE, HIGH, "dis".
+
+def running <- true.
+
+while, running: $
+    pump->.
+
+    // a zero argument call only parses immediately before a '.', so the
+    // answer goes into a name before it is tested
+    def closing <- quitting->.
+    def escape <- pressed -> "Escape".
+
+    when, closing:  running <- false.
+    when, escape:   running <- false.
+
+    clear -> fb, 0xFF201814.
+
+    def x <- mousex->.
+    def y <- mousey->.
+
+    as, def row <- 0.(++) < 8:
+        hspan -> fb, WIDE, y + row, x, x + 8, 0xFFFFFFFF.
+
+    blit -> fb, WIDE, HIGH.
+    present->.
+^
+
+shut->.
+```
+
+`raster/p0_smoke.dis` is that loop with a sweeping bar and an FPS report. It
+gives up after two seconds so it can be run unattended, and it runs headless
+under `SDL_VIDEODRIVER=dummy`.
+
+**A note on valgrind**
+
+sdl2 caches the environment inside its own library destructor, whether or not a
+window was ever opened, and never tears it down. That shows up as about 10KB
+still reachable in 89 blocks on the sdl build — none of it ours, and zero
+definitely, indirectly or possibly lost. `dis.supp` silences it:
+
+```
+valgrind --suppressions=dis.supp --leak-check=full --show-leak-kinds=all ./dis <file>
+```
+
+Built without sdl2, valgrind reports `All heap blocks were freed` with no
+suppressions at all.

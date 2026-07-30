@@ -10,6 +10,7 @@
 #include "memory.h"
 #include "object.h"
 #include "debug.h"
+#include "display.h"
 
 Virtualizer vm;
 
@@ -19,7 +20,7 @@ Value pop () { vm.stackHead--; return *vm.stackHead; }
 static Value peek (int dist) { return vm.stackHead[-1 - dist]; }
 static bool isFalse (Value value) { return IS_NONE(value) || (IS_BOOLEAN(value) && !AS_BOOLEAN(value)); }
 
-static void runtimeErr(const char* format, ...) {
+void runtimeErr(const char* format, ...) {
     va_list args;
     va_start(args, format);
     vfprintf(stderr, format, args);
@@ -280,12 +281,6 @@ static void concatenation () {
 
  // NATIVE OPERATIONS //
 
-typedef struct {
-    const char* name;
-    NativeOp op;
-    int arity;
-} NativeEntry;
-
 // every arithmetic native has the same shape - check the arguments, hand them to
 // the C library, wrap the answer back up as a numeral
 #define NATIVE_UNARY(id, label, call) \
@@ -407,6 +402,200 @@ static bool nativeCount (int args, Value* argv, Value* result) {
     return true;
 }
 
+ // RASTER CORE //
+
+// the packed pixel value, and the whole numbers that index into a surface. both
+// settle their range in doubles before narrowing anything
+static bool wholePixel (Value value, const char* what, uint32_t* out) {
+    if (!IS_NUMERAL(value)) {
+        runtimeErr("%s must be a numeral.", what);
+        return false;
+    }
+
+    double v = AS_NUMERAL(value);
+
+    if (!(v >= 0) || v > 4294967295.0 || v != (double)(int64_t)v) {
+        runtimeErr("%s must be a whole number from 0 to 4294967295.", what);
+        return false;
+    }
+
+    *out = (uint32_t)v;
+    return true;
+}
+
+static bool wholeCoord (Value value, const char* what, int* out) {
+    if (!IS_NUMERAL(value)) {
+        runtimeErr("%s must be a numeral.", what);
+        return false;
+    }
+
+    double v = AS_NUMERAL(value);
+
+    if (!(v >= -2147483648.0) || !(v <= 2147483647.0) || v != (double)(int64_t)v) {
+        runtimeErr("%s must be a whole number.", what);
+        return false;
+    }
+
+    *out = (int)v;
+    return true;
+}
+
+static bool pixelSurface (Value value, const char* what, OBuffer** out) {
+    if (!IS_BUFFER(value)) {
+        runtimeErr("%s requires a buffer.", what);
+        return false;
+    }
+
+    OBuffer* buffer = AS_BUFFER(value);
+
+    if (buffer->form->stride != 4) {
+        runtimeErr("%s requires a buffer of four byte elements, but '%s' is %d.",
+                   what, buffer->form->name->chars, buffer->form->stride);
+        return false;
+    }
+
+    *out = buffer;
+    return true;
+}
+
+// 'clear -> fb, rgba.' paints every element and answers how many it touched
+static bool nativeClear (int args, Value* argv, Value* result) {
+    (void)args;
+
+    OBuffer* fb;
+    uint32_t rgba;
+
+    if (!pixelSurface(argv[0], "clear", &fb)) { return false; }
+    if (!wholePixel(argv[1], "The clear colour", &rgba)) { return false; }
+
+    uint8_t* bytes = (uint8_t*)&rgba;
+
+    // when all four bytes agree the whole surface is one memset
+    if (bytes[0] == bytes[1] && bytes[1] == bytes[2] && bytes[2] == bytes[3]) {
+        memset(fb->bytes, bytes[0], (size_t)fb->count * 4);
+    } else {
+        uint32_t* pixels = (uint32_t*)fb->bytes;
+
+        for (int i = 0; i < fb->count; i++) { pixels[i] = rgba; }
+    }
+
+    *result = NUMERAL_VALUE(fb->count);
+    return true;
+}
+
+// 'hspan -> fb, w, y, x0, x1, rgba.' fills one clamped run of a scanline and
+// answers how many pixels it actually wrote
+static bool nativeHspan (int args, Value* argv, Value* result) {
+    (void)args;
+
+    OBuffer* fb;
+    uint32_t rgba;
+    int w, y, x0, x1;
+
+    if (!pixelSurface(argv[0], "hspan", &fb)) { return false; }
+    if (!wholeCoord(argv[1], "The hspan width", &w)) { return false; }
+    if (!wholeCoord(argv[2], "The hspan row", &y)) { return false; }
+    if (!wholeCoord(argv[3], "The hspan start", &x0)) { return false; }
+    if (!wholeCoord(argv[4], "The hspan end", &x1)) { return false; }
+    if (!wholePixel(argv[5], "The hspan colour", &rgba)) { return false; }
+
+    if (w <= 0) {
+        runtimeErr("The hspan width must be one or more.");
+        return false;
+    }
+
+    // a row outside the surface writes nothing rather than reaching past it
+    if (y < 0 || y >= fb->count / w) {
+        *result = NUMERAL_VALUE(0);
+        return true;
+    }
+
+    if (x0 < 0) { x0 = 0; }
+    if (x1 > w - 1) { x1 = w - 1; }
+
+    if (x0 > x1) {
+        *result = NUMERAL_VALUE(0);
+        return true;
+    }
+
+    uint32_t* pixels = (uint32_t*)fb->bytes + ((size_t)y * (size_t)w);
+
+    for (int x = x0; x <= x1; x++) { pixels[x] = rgba; }
+
+    *result = NUMERAL_VALUE(x1 - x0 + 1);
+    return true;
+}
+
+// 'read -> path, buf.' is the inverse of write - it fills as much of the buffer
+// as the file has bytes for, and answers how many that was. it never resizes,
+// so the caller grows first and asks 'count' second
+static bool nativeRead (int args, Value* argv, Value* result) {
+    (void)args;
+
+    if (!IS_STRING(argv[0])) {
+        runtimeErr("Read requires a string path.");
+        return false;
+    }
+
+    if (!IS_BUFFER(argv[1])) {
+        runtimeErr("Read requires a buffer to read into.");
+        return false;
+    }
+
+    const char* path = AS_CSTRING(argv[0]);
+    OBuffer* buffer = AS_BUFFER(argv[1]);
+    FILE* file = fopen(path, "rb");
+
+    if (file == NULL) {
+        runtimeErr("Read could not open '%s' - %s.", path, strerror(errno));
+        return false;
+    }
+
+    // a directory opens happily but will not seek, and would otherwise look
+    // exactly like an empty file
+    if (fseek(file, 0L, SEEK_END) != 0) {
+        char probe;
+
+        errno = 0;
+        fread(&probe, 1, 1, file);
+
+        int reason = errno;
+
+        fclose(file);
+        runtimeErr("Read failed on '%s' - %s.", path, strerror(reason == 0 ? EIO : reason));
+        return false;
+    }
+
+    long size = ftell(file);
+
+    if (size < 0) {
+        int reason = errno;
+
+        fclose(file);
+        runtimeErr("Read failed on '%s' - %s.", path, strerror(reason));
+        return false;
+    }
+
+    rewind(file);
+
+    // only what the buffer can actually address is filled
+    size_t room = (size_t)buffer->count * (size_t)buffer->form->stride;
+    size_t wanted = ((size_t)size < room) ? (size_t)size : room;
+    size_t got = (wanted == 0) ? 0 : fread(buffer->bytes, 1, wanted, file);
+
+    if (got < wanted || ferror(file)) {
+        int reason = errno;
+
+        fclose(file);
+        runtimeErr("Read failed on '%s' - %s.", path, strerror(reason == 0 ? EIO : reason));
+        return false;
+    }
+
+    fclose(file);
+    *result = NUMERAL_VALUE((double)got);
+    return true;
+}
+
 // one row per native - the whole registration cost of adding another
 static const NativeEntry natives[] = {
     { "sqrt",  nativeSqrt,  1 },
@@ -421,16 +610,31 @@ static const NativeEntry natives[] = {
     { "max",   nativeMax,   2 },
     { "grow",  nativeGrow,  2 },
     { "count", nativeCount, 1 },
+    { "clear", nativeClear, 2 },
+    { "hspan", nativeHspan, 6 },
+    { "read",  nativeRead,  2 },
 };
 
-static void defineNatives () {
-    for (int i = 0; i < (int)(sizeof(natives) / sizeof(NativeEntry)); i++) {
-        OString* name = copyString(natives[i].name, (int)strlen(natives[i].name));
-        ONative* native = newNative(natives[i].op, natives[i].arity, natives[i].name);
+static void defineTable (const NativeEntry* table, int count) {
+    for (int i = 0; i < count; i++) {
+        OString* name = copyString(table[i].name, (int)strlen(table[i].name));
+        ONative* native = newNative(table[i].op, table[i].arity, table[i].name);
 
         setTable(&vm.globals, name, OBJECT_VALUE(native));
     }
 
+    return;
+}
+
+static void defineNatives () {
+    int count = 0;
+    const NativeEntry* fromDisplay = displayNatives(&count);
+
+    defineTable(natives, (int)(sizeof(natives) / sizeof(NativeEntry)));
+
+    // built without sdl this contributes only 'clock', so the window natives
+    // are simply absent and naming one is an ordinary undefined variable
+    defineTable(fromDisplay, count);
     return;
 }
 
@@ -445,6 +649,7 @@ void initVM () {
 }
 
 void freeVM () {
+    displayShutdown();
     freeTable(&vm.globals);
     freeTable(&vm.strings);
     freeObjects();

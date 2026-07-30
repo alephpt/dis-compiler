@@ -1,0 +1,91 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// P0 - the loop skeleton. Opens a window, clears it, sweeps a bar across it,
+// and reports the frame rate it managed. Run it and it draws until you close
+// the window or press Escape; it gives up on its own after LIFETIME either way
+// so that it can be run unattended.
+//
+//     sh compile.sh && ./dis raster/p0_smoke.dis
+//
+// This one is not in tests/ because it wants a display. The headless suite has
+// to keep passing on a machine with no sdl at all.
+
+form Px <- $
+    v <- u32.
+^
+
+def WIDE <- 640.
+def HIGH <- 480.
+def LIFETIME <- 2000.
+
+def fb <- Px[640 * 480].
+
+// sdl lays RGBA32 out as r, g, b, a in memory, so on a little endian machine
+// the alpha is the top byte of the word
+op rgba <- r, g, b, a : $
+    return (a * 16777216) + (b * 65536) + (g * 256) + r.
+^
+
+display -> WIDE, HIGH, "dis - P0".
+
+def start <- clock->.
+def frames <- 0.
+def running <- true.
+def bar <- 0.
+
+while, running: $
+    pump->.
+
+    def closing <- quitting->.
+    def escape <- key -> "Escape".
+    def now <- clock->.
+    def alive <- now - start.
+
+    when, closing:
+        running <- false.
+
+    when, escape:
+        running <- false.
+
+    when, alive > LIFETIME:
+        running <- false.
+
+    // a background that drifts through blue, and a bar that sweeps across it
+    def tint <- floor -> alive / 24.
+    def blue <- tint % 96.
+    def back <- rgba -> 12, 14, 40 + blue, 255.
+
+    clear -> fb, back.
+
+    bar <- (bar + 7) % WIDE.
+
+    def ink <- rgba -> 240, 200, 80, 255.
+
+    as, def y <- 0.(++) < HIGH:
+        hspan -> fb, WIDE, y, bar, bar + 48, ink.
+
+    // and a cursor mark, so the input path is exercised too
+    def mx <- mousex->.
+    def my <- mousey->.
+    def mark <- rgba -> 255, 60, 60, 255.
+
+    as, def y <- 0.(++) < 8:
+        hspan -> fb, WIDE, my + y, mx, mx + 8, mark.
+
+    blit -> fb, WIDE, HIGH.
+    present->.
+
+    frames <- frames + 1.
+^
+
+def ended <- clock->.
+def elapsed <- ended - start.
+
+shut->.
+
+log -> "frames".
+log -> frames.
+log -> "milliseconds".
+log -> elapsed.
+log -> "frames per second".
+log -> floor -> (frames * 1000) / elapsed.

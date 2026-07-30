@@ -32,6 +32,9 @@ typedef enum {
 
 extern Virtualizer vm;
 
+// natives report their own failures through this, wherever they are defined
+void runtimeErr(const char* format, ...);
+
 void initVM();
 void freeVM();
 

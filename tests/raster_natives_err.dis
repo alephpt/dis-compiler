@@ -1,0 +1,20 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// the raster natives insist on a four byte surface
+
+form Px <- $
+    v <- u32.
+^
+
+form Byte <- $
+    v <- u8.
+^
+
+def fb <- Px[4].
+def wrong <- Byte[4].
+
+log -> clear -> fb, 0xFF.
+
+log -> clear -> wrong, 0xFF.
+
+log -> "unreachable".

@@ -88,6 +88,13 @@ typedef struct {
 // vm then unwinds exactly as it would for any other runtime error
 typedef bool (*NativeOp)(int args, Value* argv, Value* result);
 
+// one row of a native registration table
+typedef struct {
+    const char* name;
+    NativeOp op;
+    int arity;
+} NativeEntry;
+
 // an operation implemented in C. the name is static storage, never freed
 typedef struct {
     Obj object;
