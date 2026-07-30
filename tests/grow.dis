@@ -1,0 +1,79 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// buffers grow, so a pool can be appended to without knowing its size up front
+
+form Pt <- $
+    x <- f64.
+    y <- f64.
+^
+
+form Byte <- $
+    v <- u8.
+^
+
+// the append idiom - grow by one, then write the element grow just exposed
+op append <- pool, px, py : $
+    def n <- grow -> pool, 1.
+    def at <- n - 1.
+
+    pool[at]::x <- px.
+    pool[at]::y <- py.
+
+    return at.
+^
+
+def pts <- Pt[0].
+
+log -> count -> pts.
+
+log -> append -> pts, 1.5, 2.5.
+log -> append -> pts, 3.5, 4.5.
+log -> append -> pts, 5.5, 6.5.
+
+log -> count -> pts.
+log -> pts.
+
+log -> pts[0]::x.
+log -> pts[1]::y.
+log -> pts[2]::x.
+
+// growing from a buffer that already had elements keeps them
+def seed <- Pt[2].
+seed[0]::x <- 11.
+seed[1]::x <- 22.
+
+grow -> seed, 3.
+log -> count -> seed.
+log -> seed[0]::x.
+log -> seed[1]::x.
+
+// whatever growth exposes reads back as zero
+log -> seed[2]::x.
+log -> seed[4]::y.
+
+// a growth of nothing is legal and changes nothing
+log -> grow -> seed, 0.
+
+// across many reallocations the earliest element has to survive every move
+def big <- Byte[1].
+big[0]::v <- 0xA5.
+
+as, def i <- 0.(++) < 1000:
+    grow -> big, 1.
+
+log -> count -> big.
+log -> big[0]::v.
+log -> big[1000]::v.
+
+// and a single large jump past the doubling
+grow -> big, 50000.
+log -> count -> big.
+log -> big[0]::v.
+log -> big[50999]::v.
+
+// the live count is what write emits, not the capacity
+def out <- Byte[0].
+grow -> out, 4.
+out[0]::v <- 68.  out[1]::v <- 73.  out[2]::v <- 83.  out[3]::v <- 10.
+write -> "/tmp/dis_grow.bin", out.
+log -> "wrote".

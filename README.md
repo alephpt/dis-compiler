@@ -370,11 +370,111 @@ op len <- x, y : $ ^(sqrt -> x*x + y*y)
 log -> len -> 3, 4.             // 5
 ```
 
+**Arithmetic**
+
 | native | arity | answers |
 |---|---|---|
 | `sqrt` | 1 | the square root of a numeral |
 | `floor` | 1 | the numeral rounded down to a whole number |
+| `abs` | 1 | the numeral without its sign |
+| `sin` `cos` `tan` | 1 | the trigonometric function, in radians |
+| `atan2` | 2 | the angle of the point `y, x`, over the whole circle |
+| `pow` | 2 | the first raised to the second — `pow -> 9, 0.5` is a square root |
+| `min` `max` | 2 | the smaller, or the larger, of the two |
+
+```
+log -> pow -> 2, 10.            // 1024
+log -> min -> 3, 8.             // 3
+log -> abs -> 0 - 7.5.          // 7.5
+
+// the clamp the renderer leans on
+op clamp <- v, lo, hi : $
+    return min -> (max -> v, lo), hi.
+^
+```
+
+**Buffers**
+
+| native | arity | answers |
+|---|---|---|
+| `grow` | 2 | extends a buffer by n elements, answering the new count |
+| `count` | 1 | how many elements a buffer currently holds |
+
+A buffer allocated with `Form[n]` can be extended later, so a pool does not have
+to know its final size. Growth is amortised, whatever it exposes reads back as
+zero, and the elements already there keep their values across the move:
+
+```
+form Pt <- $ x <- f64.  y <- f64. ^
+
+def pts <- Pt[0].
+
+// the append idiom - grow by one, then write what grow just exposed
+op append <- pool, px, py : $
+    def n <- grow -> pool, 1.
+    def at <- n - 1.
+
+    pool[at]::x <- px.
+    pool[at]::y <- py.
+
+    return at.
+^
+
+log -> append -> pts, 1.5, 2.5.     // 0
+log -> count -> pts.                // 1
+```
+
+Only the live count is addressable — an index at or past `count -> buf` is the
+same out-of-bounds runtime error it would be for a fixed buffer, and `write`
+emits `count` elements, never the spare capacity underneath.
 
 A native checks its own arity and argument types, and a mismatch is a clean
 runtime error.
+
+
+## include
+
+`include -> "path".` pulls another file in where it stands, as text. It is a
+top-level statement — not legal inside an operation or a `$ ... ^` scope — and
+it compiles to no bytecode at all.
+
+```
+include -> "math.dis".
+include -> "scene/pools.dis".
+
+log -> "everything above is available here".
+```
+
+A relative path resolves **against the file doing the including**, not the
+working directory, so a library can name its own neighbours no matter where
+`dis` was run from. In the REPL there is no including file, so paths resolve
+against the working directory.
+
+**A file is included at most once.** The second request for a file already
+pulled in is silently skipped, which makes the diamond case do the right thing
+and makes a cycle — including a file that includes you, or itself — harmless:
+
+```
+// e.dis and f.dis both include d.dis; the body of d runs once
+include -> "e.dis".
+include -> "f.dis".
+```
+
+Includes may nest 16 deep. A path that cannot be read is a compile error naming
+the reason the system gave:
+
+```
+ERR - [main.dis: line 3]: '"missing.dis"' - No such file or directory
+ERR - [main.dis: line 4]: '"somedir"' - Is a directory
+```
+
+Diagnostics carry the file a token actually came from, so an error inside an
+included file names that file and its own line number, and a runtime traceback
+names the file each operation was written in:
+
+```
+Operands must be of the same type.
+[inc/boom.dis: line 3] in boom()
+[main.dis: line 9] in script
+```
 

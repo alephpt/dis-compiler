@@ -1,0 +1,39 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// nested: a includes b includes c, all three land
+include -> "inc/a.dis".
+
+log -> A_MARK.
+log -> B_MARK.
+log -> C_MARK.
+def a1 <- aval->.
+def b1 <- bval->.
+def c1 <- cval->.
+log -> a1 + b1 + c1.
+
+// diamond: e and f both include d, and d runs exactly once
+include -> "inc/e.dis".
+include -> "inc/f.dis".
+
+log -> D_COUNT.
+log -> E_MARK + F_MARK.
+
+// a file that includes itself is simply skipped the second time
+include -> "inc/self.dis".
+log -> SELF_MARK.
+
+// re-including something already pulled in is a silent no-op
+include -> "inc/c.dis".
+log -> C_MARK.
+
+// the token right after an include boundary belongs to the parent again
+include -> "inc/tail.dis".
+log -> TAIL + 1.
+
+// the last token of an included file is still live when the parent resumes -
+// this statement literally starts in one file and finishes in this one
+include -> "inc/split.dis".
+<- 99.
+log -> SPLIT.
+
+log -> "include done".

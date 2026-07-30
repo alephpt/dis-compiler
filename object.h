@@ -46,6 +46,8 @@ typedef struct {
     int arity;
     Sequence sequence;
     OString* name;
+    // where the operation was written, for a runtime traceback
+    const char* file;
 } OOperation;
 
 struct OString{
@@ -71,12 +73,15 @@ typedef struct {
     int stride;
 } OForm;
 
-// a flat linear region of raw bytes - 'count' packed elements of 'form'
+// a flat linear region of raw bytes - 'count' packed elements of 'form'.
+// 'capacity' is what was actually allocated, so growth can amortise; everything
+// below 'count' is live and initialised, everything above it is not addressable
 typedef struct {
     Obj object;
     OForm* form;
     uint8_t* bytes;
     int count;
+    int capacity;
 } OBuffer;
 
 // a native reports its own failure through runtimeErr and answers false - the

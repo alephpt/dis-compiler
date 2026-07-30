@@ -36,6 +36,15 @@ typedef enum {
     SIG_MEMBER_ASSIGN,
     SIG_MEMBER_RETURN,
     SIG_WRITE,
+    // wide forms, carrying a two byte constant index. only the operations that
+    // reach into the constant pool need them - local slots and argument counts
+    // are still bounded by 255 and stay narrow
+    OP_VALUE_16,
+    OP_GLOBAL_16,
+    SIG_GLOBAL_ASSIGN_16,
+    SIG_GLOBAL_RETURN_16,
+    SIG_MEMBER_ASSIGN_16,
+    SIG_MEMBER_RETURN_16,
 } OpCode;
 
 // data

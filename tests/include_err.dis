@@ -1,0 +1,9 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// an error inside an included file has to name that file and its own line
+
+include -> "inc/boom.dis".
+
+log -> "compiled fine, now the runtime error".
+
+log -> boom->.

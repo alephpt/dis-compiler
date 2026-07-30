@@ -35,7 +35,7 @@ extern Virtualizer vm;
 void initVM();
 void freeVM();
 
-Interpretation interpret(const char* source);
+Interpretation interpret(const char* source, const char* path);
 void push(Value value);
 Value pop();
 

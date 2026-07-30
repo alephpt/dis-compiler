@@ -103,9 +103,15 @@ typedef struct {
     const char* start;
     int length;
     int line;
+    // which file the token came from, so a diagnostic can name it
+    const char* file;
 } Token;
 
-void initScanner(const char* source);
+#define INCLUDE_DEPTH_MAX 16
+
+void initScanner(const char* source, const char* file);
+bool pushSource(const char* source, const char* file);
+const char* scannerFile();
 Token scanToken();
 
 #endif

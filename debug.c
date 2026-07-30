@@ -29,6 +29,15 @@ static int instructValue (const char* name, Sequence* sequence, int offset) {
     return offset + 2;
 }
 
+static int instructValue16 (const char* name, Sequence* sequence, int offset) {
+    uint16_t value = (uint16_t)((sequence->code[offset + 1] << 8) | sequence->code[offset + 2]);
+    printf("%-16s %4d   '", name, value);
+    printValue(sequence->constants.values[value]);
+    printf("'\n");
+
+    return offset + 3;
+}
+
 int stripCommand (Sequence* seq, int offset) {
     printf("\033[0m");
     printf(" %04d ", offset);
@@ -137,6 +146,18 @@ int stripCommand (Sequence* seq, int offset) {
             return instructValue("SIG_MEMBER_RETURN", seq, offset);
         case SIG_WRITE:
             return instructByte("SIG_WRITE", seq, offset);
+        case OP_VALUE_16:
+            return instructValue16("OP_VALUE_16", seq, offset);
+        case OP_GLOBAL_16:
+            return instructValue16("OP_GLOBAL_16", seq, offset);
+        case SIG_GLOBAL_ASSIGN_16:
+            return instructValue16("SIG_GLOBAL_ASSIGN_16", seq, offset);
+        case SIG_GLOBAL_RETURN_16:
+            return instructValue16("SIG_GLOBAL_RETURN_16", seq, offset);
+        case SIG_MEMBER_ASSIGN_16:
+            return instructValue16("SIG_MEMBER_ASSIGN_16", seq, offset);
+        case SIG_MEMBER_RETURN_16:
+            return instructValue16("SIG_MEMBER_RETURN_16", seq, offset);
         default:
             printf("Unknown Instruction %d\n", instruction);
             return offset + 1;

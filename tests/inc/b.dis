@@ -1,0 +1,4 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+include -> "c.dis".
+def B_MARK <- "b reached".
+op bval <- : $ ^(2)

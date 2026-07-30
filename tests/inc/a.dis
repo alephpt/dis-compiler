@@ -1,0 +1,4 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+include -> "b.dis".
+def A_MARK <- "a reached".
+op aval <- : $ ^(1)

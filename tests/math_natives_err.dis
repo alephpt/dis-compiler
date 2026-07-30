@@ -1,0 +1,9 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// a binary native checks both of its arguments
+
+log -> pow -> 2, 8.
+
+log -> pow -> 2, "eight".
+
+log -> "unreachable".

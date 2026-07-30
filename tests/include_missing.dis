@@ -1,0 +1,9 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// an unreadable include names the reason the system gave
+
+log -> "before".
+
+include -> "inc/nope.dis".
+
+log -> "unreachable".

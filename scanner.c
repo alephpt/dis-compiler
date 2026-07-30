@@ -3,18 +3,59 @@
 #include "header.h"
 #include "scanner.h"
 
+// one file being scanned. an include suspends the current one and resumes it
+// exactly where it left off once the nested source runs out
 typedef struct {
     const char* start;
     const char* current;
     int line;
+    const char* file;
+} Source;
+
+typedef struct {
+    const char* start;
+    const char* current;
+    int line;
+    const char* file;
+    Source parents[INCLUDE_DEPTH_MAX];
+    int depth;
 } Scanner;
 
 Scanner scanner;
 
-void initScanner (const char* source) {
+void initScanner (const char* source, const char* file) {
     scanner.start = source;
     scanner.current = source;
     scanner.line = 1;
+    scanner.file = file;
+    scanner.depth = 0;
+}
+
+const char* scannerFile () { return scanner.file; }
+
+bool pushSource (const char* source, const char* file) {
+    if (scanner.depth == INCLUDE_DEPTH_MAX) { return false; }
+
+    Source* parent = &scanner.parents[scanner.depth++];
+    parent->start = scanner.start;
+    parent->current = scanner.current;
+    parent->line = scanner.line;
+    parent->file = scanner.file;
+
+    scanner.start = source;
+    scanner.current = source;
+    scanner.line = 1;
+    scanner.file = file;
+    return true;
+}
+
+static void popSource () {
+    Source* parent = &scanner.parents[--scanner.depth];
+    scanner.start = parent->start;
+    scanner.current = parent->current;
+    scanner.line = parent->line;
+    scanner.file = parent->file;
+    return;
 }
 
 static Token genToken (TType type) {
@@ -24,6 +65,7 @@ static Token genToken (TType type) {
     t.start = scanner.start;
     t.length = (int)(scanner.current - scanner.start);
     t.line = scanner.line;
+    t.file = scanner.file;
 
     return t;
 } 
@@ -35,7 +77,8 @@ static Token errToken (const char* message) {
     t.start = message;
     t.length = (int)strlen(message);
     t.line = scanner.line;
-    
+    t.file = scanner.file;
+
     return t;
 }
 
@@ -283,8 +326,16 @@ static bool match (char exp) {
 Token scanToken () {
     // consume blank spaces
     skipBlanks();
-
     scanner.start = scanner.current;
+
+    // running out of an included file just returns us to the one that included
+    // it - only the root source can produce end of file
+    while (*scanner.current == '\0' && scanner.depth > 0) {
+        popSource();
+        skipBlanks();
+        scanner.start = scanner.current;
+    }
+
     if (ended()) return genToken(T_EOF);
 
     // read a char

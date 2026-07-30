@@ -39,7 +39,14 @@ void writeSequence (Sequence* sequence, uint8_t code, int line) {
     return;
 }
 
+// an identical constant is reused rather than appended. strings are interned so
+// identity compares by pointer, and forms and operations are distinct objects
+// that can never be merged by mistake
 int addValue (Sequence* sequence, Value value) {
+    for (int i = 0; i < sequence->constants.inventory; i++) {
+        if (equalValues(sequence->constants.values[i], value)) { return i; }
+    }
+
     writeValues(&sequence->constants, value);
     return sequence->constants.inventory - 1;
 }

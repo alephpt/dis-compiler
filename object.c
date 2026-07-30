@@ -75,6 +75,7 @@ OString* copyString (const char* chars, int len) {
     OOperation* op = ALLOCATE_OBJECT (OOperation, O_OPERATION);
     op->arity = 0;
     op->name = NULL;
+    op->file = "?";
     initSequence(&op->sequence);
     return op;
  }
@@ -147,6 +148,7 @@ OBuffer* newBuffer (OForm* form, int count) {
 
     buffer->form = form;
     buffer->count = count;
+    buffer->capacity = count;
     buffer->bytes = (bytes == 0) ? NULL : ALLOCATE(uint8_t, bytes);
 
     if (buffer->bytes != NULL) { memset(buffer->bytes, 0, bytes); }

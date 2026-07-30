@@ -1,0 +1,15 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// grow only extends a buffer, and only by a whole count
+
+form Byte <- $
+    v <- u8.
+^
+
+def b <- Byte[2].
+
+log -> grow -> b, 3.
+
+log -> grow -> b, 0 - 1.
+
+log -> "unreachable".

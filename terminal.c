@@ -19,7 +19,7 @@ void repl() {
         #ifdef DEBUG_TRACE_EXECUTION    
         printf("\n");// %s", line);
         #endif
-        interpret(line);
+        interpret(line, "repl");
     }
 
     return;
@@ -44,7 +44,7 @@ static char* read_f (const char* path) {
 
 void runFile (const char* file) {
     char* source = read_f(file);
-    Interpretation res = interpret(source);
+    Interpretation res = interpret(source, file);
     free(source);
     
     // an early exit still owns every allocation the run made

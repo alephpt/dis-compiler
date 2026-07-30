@@ -1,0 +1,9 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// include is a top level statement only
+
+op wrong <- : $
+    include -> "inc/tail.dis".
+^
+
+log -> "unreachable".

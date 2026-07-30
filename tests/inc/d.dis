@@ -1,0 +1,4 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+def D_COUNT <- 0.
+D_COUNT <- D_COUNT + 1.
+log -> "d body ran".

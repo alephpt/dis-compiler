@@ -39,8 +39,10 @@ static void freeObj (Obj* o) {
             break;
         }
         case O_BUFFER: {
+            // what was allocated is the capacity, which growth may have pushed
+            // out past the live count
             OBuffer* buffer = (OBuffer*)o;
-            FREE_ARRAY(uint8_t, buffer->bytes, (size_t)buffer->count * (size_t)buffer->form->stride);
+            FREE_ARRAY(uint8_t, buffer->bytes, (size_t)buffer->capacity * (size_t)buffer->form->stride);
             FREE(OBuffer, o);
             break;
         }

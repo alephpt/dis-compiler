@@ -31,7 +31,7 @@ static void runtimeErr(const char* format, ...) {
         OOperation* op = frame->operation;
         size_t instructor = frame->instruction - op->sequence.code - 1;
 
-        fprintf(stderr, "[line %d] in ", op->sequence.line[instructor]);
+        fprintf(stderr, "[%s: line %d] in ", op->file, op->sequence.line[instructor]);
 
         if (op->name == NULL) {
             fprintf(stderr, "script\n");
@@ -210,6 +210,58 @@ static bool writeStream (int values) {
     return true;
 }
 
+// the narrow and wide forms of an instruction differ only in how the constant
+// index is read, so the work itself lives here and both cases share it
+static bool globalReturn (OString* name) {
+    Value val;
+
+    if (!getItem(&vm.globals, name, &val)) {
+        runtimeErr("Global Return Failed: Undefined variable '%s'.", name->chars);
+        return false;
+    }
+
+    push(val);
+    return true;
+}
+
+static bool globalAssign (OString* name) {
+    if (setTable(&vm.globals, name, peek(0))) {
+        delItem(&vm.globals, name);
+        runtimeErr("Global Assignment Failed: Undefined variable %s", name->chars);
+        return false;
+    }
+
+    return true;
+}
+
+static bool memberAssign (OString* name) {
+    uint8_t* slot;
+    WidthT width;
+
+    if (!IS_NUMERAL(peek(0))) {
+        runtimeErr("Form members hold numerals only.");
+        return false;
+    }
+
+    Value value = pop();
+
+    if (!memberSlot(name, &slot, &width)) { return false; }
+
+    writeWidth(slot, width, AS_NUMERAL(value));
+    push(value);
+    return true;
+}
+
+static bool memberReturn (OString* name) {
+    uint8_t* slot;
+    WidthT width;
+
+    if (!memberSlot(name, &slot, &width)) { return false; }
+
+    push(NUMERAL_VALUE(readWidth(slot, width)));
+    return true;
+}
+
 static void concatenation () {
     OString* latter = AS_STRING(pop());
     OString* prior = AS_STRING(pop());
@@ -234,27 +286,124 @@ typedef struct {
     int arity;
 } NativeEntry;
 
-static bool nativeSqrt (int args, Value* argv, Value* result) {
+// every arithmetic native has the same shape - check the arguments, hand them to
+// the C library, wrap the answer back up as a numeral
+#define NATIVE_UNARY(id, label, call) \
+    static bool native##id (int args, Value* argv, Value* result) { \
+        (void)args; \
+        if (!IS_NUMERAL(argv[0])) { \
+            runtimeErr("%s requires a numeral.", label); \
+            return false; \
+        } \
+        *result = NUMERAL_VALUE(call(AS_NUMERAL(argv[0]))); \
+        return true; \
+    }
+
+#define NATIVE_BINARY(id, label, call) \
+    static bool native##id (int args, Value* argv, Value* result) { \
+        (void)args; \
+        if (!IS_NUMERAL(argv[0]) || !IS_NUMERAL(argv[1])) { \
+            runtimeErr("%s requires numerals.", label); \
+            return false; \
+        } \
+        *result = NUMERAL_VALUE(call(AS_NUMERAL(argv[0]), AS_NUMERAL(argv[1]))); \
+        return true; \
+    }
+
+NATIVE_UNARY(Sqrt, "sqrt", sqrt)
+NATIVE_UNARY(Floor, "floor", floor)
+NATIVE_UNARY(Sin, "sin", sin)
+NATIVE_UNARY(Cos, "cos", cos)
+NATIVE_UNARY(Tan, "tan", tan)
+NATIVE_UNARY(Abs, "abs", fabs)
+
+NATIVE_BINARY(Atan2, "atan2", atan2)
+NATIVE_BINARY(Pow, "pow", pow)
+NATIVE_BINARY(Min, "min", fmin)
+NATIVE_BINARY(Max, "max", fmax)
+
+// 'grow -> buf, n.' extends a buffer by n elements and answers the new count.
+// the allocation doubles so that appending one at a time stays amortised flat
+static bool nativeGrow (int args, Value* argv, Value* result) {
     (void)args;
 
-    if (!IS_NUMERAL(argv[0])) {
-        runtimeErr("sqrt requires a numeral.");
+    if (!IS_BUFFER(argv[0])) {
+        runtimeErr("grow requires a buffer.");
         return false;
     }
 
-    *result = NUMERAL_VALUE(sqrt(AS_NUMERAL(argv[0])));
+    if (!IS_NUMERAL(argv[1])) {
+        runtimeErr("grow requires a numeral count.");
+        return false;
+    }
+
+    OBuffer* buffer = AS_BUFFER(argv[0]);
+    double by = AS_NUMERAL(argv[1]);
+
+    // the magnitude is settled before anything is narrowed - converting an out
+    // of range double to an integer is undefined, and the result of one would
+    // sail straight past every check below it
+    if (!(by >= 0)) {
+        runtimeErr("grow requires a whole count of zero or greater.");
+        return false;
+    }
+
+    if (by > BUFFER_BYTE_MAX) {
+        runtimeErr("grow count is larger than any buffer can be.");
+        return false;
+    }
+
+    if (by != (double)(int64_t)by) {
+        runtimeErr("grow requires a whole count of zero or greater.");
+        return false;
+    }
+
+    int stride = buffer->form->stride;
+    double target = (double)buffer->count + by;
+
+    if (target * (double)stride > BUFFER_BYTE_MAX) {
+        runtimeErr("Buffer of '%s' is too large to grow.", buffer->form->name->chars);
+        return false;
+    }
+
+    int wanted = (int)target;
+
+    if (wanted > buffer->capacity) {
+        // the doubling is chosen and capped entirely in doubles, so the one
+        // narrowing at the end is always of a value known to fit
+        double doubled = (double)buffer->capacity * 2;
+        double roomy = (doubled > target) ? doubled : target;
+
+        if (roomy * (double)stride > BUFFER_BYTE_MAX) { roomy = target; }
+
+        int capacity = (int)roomy;
+
+        buffer->bytes = (uint8_t*)reallocate(buffer->bytes,
+                                             (size_t)buffer->capacity * (size_t)stride,
+                                             (size_t)capacity * (size_t)stride);
+        buffer->capacity = capacity;
+    }
+
+    // whatever the growth just exposed starts zeroed, like a fresh allocation
+    if (wanted > buffer->count) {
+        memset(buffer->bytes + ((size_t)buffer->count * (size_t)stride),
+               0, (size_t)(wanted - buffer->count) * (size_t)stride);
+    }
+
+    buffer->count = wanted;
+    *result = NUMERAL_VALUE(buffer->count);
     return true;
 }
 
-static bool nativeFloor (int args, Value* argv, Value* result) {
+static bool nativeCount (int args, Value* argv, Value* result) {
     (void)args;
 
-    if (!IS_NUMERAL(argv[0])) {
-        runtimeErr("floor requires a numeral.");
+    if (!IS_BUFFER(argv[0])) {
+        runtimeErr("count requires a buffer.");
         return false;
     }
 
-    *result = NUMERAL_VALUE(floor(AS_NUMERAL(argv[0])));
+    *result = NUMERAL_VALUE(AS_BUFFER(argv[0])->count);
     return true;
 }
 
@@ -262,6 +411,16 @@ static bool nativeFloor (int args, Value* argv, Value* result) {
 static const NativeEntry natives[] = {
     { "sqrt",  nativeSqrt,  1 },
     { "floor", nativeFloor, 1 },
+    { "sin",   nativeSin,   1 },
+    { "cos",   nativeCos,   1 },
+    { "tan",   nativeTan,   1 },
+    { "abs",   nativeAbs,   1 },
+    { "atan2", nativeAtan2, 2 },
+    { "pow",   nativePow,   2 },
+    { "min",   nativeMin,   2 },
+    { "max",   nativeMax,   2 },
+    { "grow",  nativeGrow,  2 },
+    { "count", nativeCount, 1 },
 };
 
 static void defineNatives () {
@@ -298,6 +457,8 @@ static Interpretation elucidate () {
     #define READ_INSTRUCTION() (*frame->instruction++)
     #define READ_VALUE() (frame->operation->sequence.constants.values[READ_INSTRUCTION()])
     #define READ_STRING() AS_STRING(READ_VALUE())
+    #define READ_VALUE_16() (frame->operation->sequence.constants.values[READ_SHORT()])
+    #define READ_STRING_16() AS_STRING(READ_VALUE_16())
     #define READ_SHORT() \
         (frame->instruction += 2, \
         (uint16_t)((frame->instruction[-2] << 8) | frame->instruction[-1]))
@@ -346,8 +507,11 @@ static Interpretation elucidate () {
         uint8_t instructor;
         switch (instructor = READ_INSTRUCTION()) {
             case OP_VALUE: {
-                Value val = READ_VALUE();
-                push(val);
+                push(READ_VALUE());
+                break;
+            }
+            case OP_VALUE_16: {
+                push(READ_VALUE_16());
                 break;
             }
             case OP_NONE: push(NONE_VALUE); break;
@@ -365,29 +529,29 @@ static Interpretation elucidate () {
                 break;
             }
             case SIG_GLOBAL_RETURN: {
-                OString* name = READ_STRING();
-                Value val;
-
-                if (!getItem(&vm.globals, name, &val)) {
-                    runtimeErr("Global Return Failed: Undefined variable '%s'.", name->chars);
-                    return RUNTIME_ERROR;
-                }
-
-                push(val);
+                if (!globalReturn(READ_STRING())) { return RUNTIME_ERROR; }
+                break;
+            }
+            case SIG_GLOBAL_RETURN_16: {
+                if (!globalReturn(READ_STRING_16())) { return RUNTIME_ERROR; }
                 break;
             }
             case SIG_GLOBAL_ASSIGN: {
-                OString* name = READ_STRING();
-
-                if (setTable(&vm.globals, name, peek(0))) {
-                    delItem(&vm.globals, name);
-                    runtimeErr("Global Assignment Failed: Undefined variable %s", name->chars);
-                    return RUNTIME_ERROR;
-                }
+                if (!globalAssign(READ_STRING())) { return RUNTIME_ERROR; }
+                break;
+            }
+            case SIG_GLOBAL_ASSIGN_16: {
+                if (!globalAssign(READ_STRING_16())) { return RUNTIME_ERROR; }
                 break;
             }
             case OP_GLOBAL: {
                 OString* name = READ_STRING();
+                setTable(&vm.globals, name, peek(0));
+                pop();
+                break;
+            }
+            case OP_GLOBAL_16: {
+                OString* name = READ_STRING_16();
                 setTable(&vm.globals, name, peek(0));
                 pop();
                 break;
@@ -483,31 +647,19 @@ static Interpretation elucidate () {
                 break;
             }
             case SIG_MEMBER_ASSIGN: {
-                OString* name = READ_STRING();
-                uint8_t* slot;
-                WidthT width;
-
-                if (!IS_NUMERAL(peek(0))) {
-                    runtimeErr("Form members hold numerals only.");
-                    return RUNTIME_ERROR;
-                }
-
-                Value value = pop();
-
-                if (!memberSlot(name, &slot, &width)) { return RUNTIME_ERROR; }
-
-                writeWidth(slot, width, AS_NUMERAL(value));
-                push(value);
+                if (!memberAssign(READ_STRING())) { return RUNTIME_ERROR; }
+                break;
+            }
+            case SIG_MEMBER_ASSIGN_16: {
+                if (!memberAssign(READ_STRING_16())) { return RUNTIME_ERROR; }
                 break;
             }
             case SIG_MEMBER_RETURN: {
-                OString* name = READ_STRING();
-                uint8_t* slot;
-                WidthT width;
-
-                if (!memberSlot(name, &slot, &width)) { return RUNTIME_ERROR; }
-
-                push(NUMERAL_VALUE(readWidth(slot, width)));
+                if (!memberReturn(READ_STRING())) { return RUNTIME_ERROR; }
+                break;
+            }
+            case SIG_MEMBER_RETURN_16: {
+                if (!memberReturn(READ_STRING_16())) { return RUNTIME_ERROR; }
                 break;
             }
             case SIG_WRITE: {
@@ -547,12 +699,14 @@ static Interpretation elucidate () {
     #undef READ_INSTRUCTION
     #undef READ_VALUE
     #undef READ_STRING
+    #undef READ_VALUE_16
+    #undef READ_STRING_16
     #undef READ_SHORT
     #undef BINARY_OP
 }
 
-Interpretation interpret (const char* source) {
-    OOperation* op = compile(source);
+Interpretation interpret (const char* source, const char* path) {
+    OOperation* op = compile(source, path);
 
     if (op == NULL) { return COMPILE_ERROR; }
 

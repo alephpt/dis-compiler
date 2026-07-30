@@ -1,3 +1,5 @@
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -63,13 +65,25 @@ typedef struct Compiler {
     int localScope;
 } Compiler;
 
+// every source pulled in by an include. the buffers stay alive for the whole
+// compilation because token start pointers alias them, and parser.prev can
+// still be pointing into a file one token after the scanner has left it
+typedef struct {
+    char* source;
+    size_t bytes;
+    const char* path;
+} Included;
+
 Parser parser;
 Compiler* current = NULL;
+Included included[INCLUDE_DEPTH_MAX * 16];
+int includedCount = 0;
 FormT declaredForms[UINT8_COUNT];
 int declaredFormCount = 0;
 // a bare form name allocates a single instance only as the value of a definition
 bool formInstantiable = false;
 static void expression();
+static int translateEscapes(const char* raw, int rawLength, char* target);
 static void declaration();
 static void definition();
 static void statement();
@@ -184,6 +198,7 @@ static void initCompiler (Compiler* compiler, OperationT type) {
     compiler->localCount = 0;
     compiler->localScope = 0;
     compiler->operation = newOperation();
+    compiler->operation->file = scannerFile();
     current = compiler;
     
     if (type != TYPE_SCRIPT) {
@@ -201,7 +216,7 @@ static void err(Token* token, const char* message) {
     if (parser.panic) { return; }
     parser.panic = true;
 
-    fprintf(stderr, "ERR - [line %d]:", token->line);
+    fprintf(stderr, "ERR - [%s: line %d]:", token->file, token->line);
 
     if (token->type == T_EOF) {
         fprintf(stderr, " End of File.");
@@ -240,19 +255,33 @@ static OOperation* closeCompilation() {
     return op; 
 }
 
-static uint8_t genValue (Value val) {
+static int genValue (Value val) {
     int value = addValue(currentSequence(), val);
 
-    if (value > UINT8_MAX) {
+    if (value > UINT16_MAX) {
         prevErr("Too many values in one chunk.");
         return 0;
     }
 
-    return (uint8_t)value;
+    return value;
 }
 
-static uint8_t identifier (Token* name) { 
-    return genValue(OBJECT_VALUE(copyString(name->start, name->length))); 
+// a constant index that does not fit in a byte switches the instruction to its
+// wide form rather than failing - the narrow form stays the common case
+static void constEmitter (uint8_t op8, uint8_t op16, int index) {
+    if (index <= UINT8_MAX) {
+        emitBytes(op8, (uint8_t)index);
+        return;
+    }
+
+    byteEmitter(op16);
+    byteEmitter((uint8_t)((index >> 8) & 0xff));
+    byteEmitter((uint8_t)(index & 0xff));
+    return;
+}
+
+static int identifier (Token* name) {
+    return genValue(OBJECT_VALUE(copyString(name->start, name->length)));
 }
 
 static bool identifiersMatch(Token* a, Token* b) {
@@ -289,7 +318,7 @@ static void forceConsume (TType t, const char* message) {
     return;
 }
 
-static void valueEmitter (Value value) { emitBytes(OP_VALUE, genValue(value)); return; }
+static void valueEmitter (Value value) { constEmitter(OP_VALUE, OP_VALUE_16, genValue(value)); return; }
 
 static int jumpEmitter (uint8_t signal) {
     byteEmitter(signal);
@@ -332,6 +361,7 @@ static void rebase () {
             case T_OBJ:
             case T_OP:
             case T_FORM:
+            case T_INCLUDE:
             case T_DEFINE:
             case T_AS:
             case T_WHEN:
@@ -432,24 +462,26 @@ static int findLocality(Compiler* c, Token* name) {
 }
 
 static void variableName (Token name, bool assignable) {
-    uint8_t sigAssign, sigReturn;
-    int var = findLocality(current, &name); 
-    
-    if (var != -1) {
-        sigReturn = SIG_LOCAL_RETURN;
-        sigAssign = SIG_LOCAL_ASSIGN;
-    } else {
-        var = identifier(&name);
-        sigReturn = SIG_GLOBAL_RETURN;
-        sigAssign = SIG_GLOBAL_ASSIGN;
+    // a local names a stack slot, which is always narrow. a global names a
+    // constant, which may have to reach past 255
+    int local = findLocality(current, &name);
+    int var = (local != -1) ? local : identifier(&name);
+    bool assigning = assignable && match(T_ASSIGN);
+
+    if (assigning) { expression(); }
+
+    if (local != -1) {
+        emitBytes(assigning ? SIG_LOCAL_ASSIGN : SIG_LOCAL_RETURN, (uint8_t)var);
+        return;
     }
 
-    if (assignable && match(T_ASSIGN)) {
-        expression();
-        emitBytes(sigAssign, (uint8_t)var);
-    } else {
-        emitBytes(sigReturn, (uint8_t)var);
+    if (assigning) {
+        constEmitter(SIG_GLOBAL_ASSIGN, SIG_GLOBAL_ASSIGN_16, var);
+        return;
     }
+
+    constEmitter(SIG_GLOBAL_RETURN, SIG_GLOBAL_RETURN_16, var);
+    return;
 }
 
 static void initializeDefinition () {
@@ -458,13 +490,13 @@ static void initializeDefinition () {
     return;
 }
 
-static void defineVariable (uint8_t variable) {
+static void defineVariable (int variable) {
     if (current->localScope > 0) {
         initializeDefinition();
         return;
     }
     // TODO: implement check for global keyword and resort
-    emitBytes(OP_GLOBAL, variable);
+    constEmitter(OP_GLOBAL, OP_GLOBAL_16, variable);
 }
 
 static void defineLocal (Token name) {
@@ -501,7 +533,7 @@ static void declareDefinition () {
     return;
 }
 
-static uint8_t parseDefinition (const char* message) {
+static int parseDefinition (const char* message) {
     forceConsume(T_ID, message);
     
     declareDefinition();
@@ -587,7 +619,7 @@ static void formDeclaration () {
 
     forceConsume(T_ID, "Expected form name.");
     OString* name = copyString(parser.prev.start, parser.prev.length);
-    uint8_t global = genValue(OBJECT_VALUE(name));
+    int global = genValue(OBJECT_VALUE(name));
 
     forceConsume(T_ASSIGN, "Expected '<-' after form name.");
     forceConsume(T_OPEN, "Expected '$' before form body.");
@@ -607,8 +639,8 @@ static void formDeclaration () {
     registerForm(name, form);
 
     // a layout is always bound globally - the type outlives any local scope
-    emitBytes(OP_VALUE, genValue(OBJECT_VALUE(form)));
-    emitBytes(OP_GLOBAL, global);
+    constEmitter(OP_VALUE, OP_VALUE_16, genValue(OBJECT_VALUE(form)));
+    constEmitter(OP_GLOBAL, OP_GLOBAL_16, global);
     return;
 }
 
@@ -627,7 +659,7 @@ static void operate (OperationT type) {
                 currentErr("You cannot have more than 255 variables. Try rethinking your implementation.");
             }
 
-            uint8_t constant = parseDefinition("Expected a parameer name.");
+            int constant = parseDefinition("Expected a parameer name.");
             defineVariable(constant);
         } while (match(T_COMMA));
     }
@@ -637,12 +669,12 @@ static void operate (OperationT type) {
     scope();
 
     OOperation* op = closeCompilation();
-    emitBytes(OP_VALUE, genValue(OBJECT_VALUE(op)));
+    constEmitter(OP_VALUE, OP_VALUE_16, genValue(OBJECT_VALUE(op)));
     return;
 }
 
 static void operation () {
-    uint8_t global = parseDefinition("Expected operation name.");
+    int global = parseDefinition("Expected operation name.");
     initializeDefinition();
     operate(TYPE_OPERATION);
     defineVariable(global);
@@ -727,7 +759,7 @@ static void loopVarLoad (Token name) {
         return;
     }
 
-    emitBytes(SIG_GLOBAL_RETURN, identifier(&name));
+    constEmitter(SIG_GLOBAL_RETURN, SIG_GLOBAL_RETURN_16, identifier(&name));
     return;
 }
 
@@ -739,7 +771,7 @@ static void loopVarStore (Token name) {
         return;
     }
 
-    emitBytes(SIG_GLOBAL_ASSIGN, identifier(&name));
+    constEmitter(SIG_GLOBAL_ASSIGN, SIG_GLOBAL_ASSIGN_16, identifier(&name));
     return;
 }
 
@@ -965,8 +997,165 @@ static void returnStatement () {
     return;
 }
 
+// ------------------------------------------------------------- include ----
+
+// a relative include is resolved against the file doing the including, so a
+// library can refer to its own neighbours no matter where dis was run from
+static void resolveInclude (const char* base, const char* rel, char* out, size_t cap) {
+    const char* slash = (base == NULL) ? NULL : strrchr(base, '/');
+
+    // no directory part means the repl, or a file named from the working
+    // directory - either way the include resolves against the working directory
+    if (rel[0] == '/' || slash == NULL) {
+        snprintf(out, cap, "%s", rel);
+        return;
+    }
+
+    snprintf(out, cap, "%.*s%s", (int)(slash - base) + 1, base, rel);
+    return;
+}
+
+// the canonical path is what include-once compares, which is also what stops a
+// cycle - a file that is already open simply is not opened again
+static bool alreadyIncluded (const char* canonical) {
+    for (int i = 0; i < includedCount; i++) {
+        if (strcmp(included[i].path, canonical) == 0) { return true; }
+    }
+
+    return false;
+}
+
+static char* readSource (const char* path, size_t* bytes) {
+    FILE* file = fopen(path, "rb");
+
+    if (file == NULL) { return NULL; }
+
+    // a directory opens happily and reports a length of zero, so without this it
+    // would read as an empty file and quietly include nothing at all. the probe
+    // read is only there to make the system name the real reason
+    if (fseek(file, 0L, SEEK_END) != 0) {
+        char probe;
+
+        errno = 0;
+        fread(&probe, 1, 1, file);
+
+        int reason = errno;
+
+        fclose(file);
+        errno = (reason == 0) ? EIO : reason;
+        return NULL;
+    }
+
+    long size = ftell(file);
+    rewind(file);
+
+    if (size < 0) {
+        int reason = errno;
+
+        fclose(file);
+        errno = reason;
+        return NULL;
+    }
+
+    char* buffer = ALLOCATE(char, (size_t)size + 1);
+    size_t read = fread(buffer, sizeof(char), (size_t)size, file);
+
+    // a short read means the path was never really a readable file - a directory
+    // opens happily and then refuses to be read, and silently including nothing
+    // would be worse than saying so
+    if (read < (size_t)size || ferror(file)) {
+        int reason = errno;
+
+        FREE_ARRAY(char, buffer, (size_t)size + 1);
+        fclose(file);
+        errno = (reason == 0) ? EIO : reason;
+        return NULL;
+    }
+
+    fclose(file);
+    buffer[read] = '\0';
+    *bytes = (size_t)size + 1;
+    return buffer;
+}
+
+// 'include -> "path".' - textual, top level only, and worth no bytecode at all
+static void includeDeclaration () {
+    char resolved[PATH_MAX];
+    char canonical[PATH_MAX];
+    char raw[PATH_MAX];
+
+    if (current->type != TYPE_SCRIPT || current->localScope > 0) {
+        prevErr("'include' is only allowed at the top level of a file.");
+        return;
+    }
+
+    forceConsume(T_EXECUTE, "Expected '->' after 'include'.");
+    forceConsume(T_STRING, "Expected a quoted path after 'include ->'.");
+
+    Token quoted = parser.prev;
+    int rawLength = quoted.length - 2;
+
+    if (rawLength < 0 || rawLength >= PATH_MAX) {
+        prevErr("Include path is too long.");
+        return;
+    }
+
+    int length = translateEscapes(quoted.start + 1, rawLength, raw);
+
+    if (length < 0) { return; }
+
+    raw[length] = '\0';
+
+    if (!check(T_PERIOD)) {
+        currentErr("Expected '.' after the include path.");
+        return;
+    }
+
+    resolveInclude(quoted.file, raw, resolved, sizeof(resolved));
+
+    if (realpath(resolved, canonical) == NULL) {
+        prevErr(strerror(errno));
+        return;
+    }
+
+    // a repeat, whether a diamond or an outright cycle, is simply skipped
+    if (!alreadyIncluded(canonical)) {
+        if (includedCount == (int)(sizeof(included) / sizeof(Included))) {
+            prevErr("Too many included files.");
+            return;
+        }
+
+        size_t bytes = 0;
+        char* source = readSource(resolved, &bytes);
+
+        if (source == NULL) {
+            prevErr(strerror(errno));
+            return;
+        }
+
+        // the displayed name stays relative so diagnostics do not depend on
+        // where the tree happens to live, while the canonical path keys the set
+        OString* shown = copyString(resolved, (int)strlen(resolved));
+
+        included[includedCount].source = source;
+        included[includedCount].bytes = bytes;
+        included[includedCount].path = copyString(canonical, (int)strlen(canonical))->chars;
+        includedCount++;
+
+        // the push has to happen before the '.' is stepped over, otherwise the
+        // parser has already read the next token out of the parent file
+        if (!pushSource(source, shown->chars)) {
+            prevErr("Includes are nested too deeply.");
+            return;
+        }
+    }
+
+    stepThrough();
+    return;
+}
+
 static void definition () {
-    uint8_t variable = parseDefinition("Expected variable name.");
+    int variable = parseDefinition("Expected variable name.");
 
     if (match(T_ASSIGN)) {
         formInstantiable = true;
@@ -1000,6 +1189,7 @@ static void statement () {
 }
 
 static void declaration () {
+    if (match(T_INCLUDE)) { includeDeclaration(); } else
     if (match(T_OP)) { operation(); } else
     if (match(T_FORM)) { formDeclaration(); } else
     if (match(T_DEFINE)) { definition(); }
@@ -1112,7 +1302,7 @@ static void formName (Token name) {
     bool instantiable = formInstantiable;
     formInstantiable = false;
 
-    emitBytes(SIG_GLOBAL_RETURN, identifier(&name));
+    constEmitter(SIG_GLOBAL_RETURN, SIG_GLOBAL_RETURN_16, identifier(&name));
 
     if (match(T_L_BRACK)) {
         expression();
@@ -1146,15 +1336,15 @@ static void variable (bool assignable) {
 // resolves '::field' against the buffer and index already staged on the stack
 static void fieldAccess (bool assignable) {
     forceConsume(T_ID, "Expected a field name after '::'.");
-    uint8_t field = identifier(&parser.prev);
+    int field = identifier(&parser.prev);
 
     if (assignable && match(T_ASSIGN)) {
         expression();
-        emitBytes(SIG_MEMBER_ASSIGN, field);
+        constEmitter(SIG_MEMBER_ASSIGN, SIG_MEMBER_ASSIGN_16, field);
         return;
     }
 
-    emitBytes(SIG_MEMBER_RETURN, field);
+    constEmitter(SIG_MEMBER_RETURN, SIG_MEMBER_RETURN_16, field);
     return;
 }
 
@@ -1214,11 +1404,34 @@ static void call (bool assignable) {
     emitBytes(SIG_CALL, args);
 }
 
-OOperation* compile(const char* source) {
-    Compiler compiler;
-    int line = -1;
+// the include set and its buffers belong to one compilation and no longer
+static void releaseIncludes () {
+    for (int i = 0; i < includedCount; i++) {
+        // the root file owns no buffer here - it belongs to whoever read it
+        if (included[i].source == NULL) { continue; }
 
-    initScanner(source);
+        FREE_ARRAY(char, included[i].source, included[i].bytes);
+    }
+
+    includedCount = 0;
+    return;
+}
+
+OOperation* compile(const char* source, const char* path) {
+    Compiler compiler;
+    char canonical[PATH_MAX];
+
+    initScanner(source, path);
+    releaseIncludes();
+
+    // the root counts as included, so a file that includes itself is skipped
+    if (realpath(path, canonical) != NULL) {
+        included[includedCount].source = NULL;
+        included[includedCount].bytes = 0;
+        included[includedCount].path = copyString(canonical, (int)strlen(canonical))->chars;
+        includedCount++;
+    }
+
     initCompiler(&compiler, TYPE_SCRIPT);
 
     parser.erroneous = false;
@@ -1231,5 +1444,9 @@ OOperation* compile(const char* source) {
     }
  
     OOperation* operation = closeCompilation();
+
+    // every token pointer is dead once parsing is done, so the sources can go
+    releaseIncludes();
+
     return parser.erroneous ? NULL : operation;
 }

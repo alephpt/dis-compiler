@@ -1,0 +1,77 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// a full 4x4 multiply written against named fields. before constants were
+// deduplicated this needed roughly 450 slots in one operation and would not
+// compile at all - every '::' burns one slot for the implied index and one for
+// the field name, and none of them were ever reused
+
+form Mat4 <- $
+    m00 <- f64.  m01 <- f64.  m02 <- f64.  m03 <- f64.
+    m10 <- f64.  m11 <- f64.  m12 <- f64.  m13 <- f64.
+    m20 <- f64.  m21 <- f64.  m22 <- f64.  m23 <- f64.
+    m30 <- f64.  m31 <- f64.  m32 <- f64.  m33 <- f64.
+^
+
+op matmul <- o, a, b : $
+    o::m00 <- (a::m00 * b::m00) + (a::m01 * b::m10) + (a::m02 * b::m20) + (a::m03 * b::m30).
+    o::m01 <- (a::m00 * b::m01) + (a::m01 * b::m11) + (a::m02 * b::m21) + (a::m03 * b::m31).
+    o::m02 <- (a::m00 * b::m02) + (a::m01 * b::m12) + (a::m02 * b::m22) + (a::m03 * b::m32).
+    o::m03 <- (a::m00 * b::m03) + (a::m01 * b::m13) + (a::m02 * b::m23) + (a::m03 * b::m33).
+
+    o::m10 <- (a::m10 * b::m00) + (a::m11 * b::m10) + (a::m12 * b::m20) + (a::m13 * b::m30).
+    o::m11 <- (a::m10 * b::m01) + (a::m11 * b::m11) + (a::m12 * b::m21) + (a::m13 * b::m31).
+    o::m12 <- (a::m10 * b::m02) + (a::m11 * b::m12) + (a::m12 * b::m22) + (a::m13 * b::m32).
+    o::m13 <- (a::m10 * b::m03) + (a::m11 * b::m13) + (a::m12 * b::m23) + (a::m13 * b::m33).
+
+    o::m20 <- (a::m20 * b::m00) + (a::m21 * b::m10) + (a::m22 * b::m20) + (a::m23 * b::m30).
+    o::m21 <- (a::m20 * b::m01) + (a::m21 * b::m11) + (a::m22 * b::m21) + (a::m23 * b::m31).
+    o::m22 <- (a::m20 * b::m02) + (a::m21 * b::m12) + (a::m22 * b::m22) + (a::m23 * b::m32).
+    o::m23 <- (a::m20 * b::m03) + (a::m21 * b::m13) + (a::m22 * b::m23) + (a::m23 * b::m33).
+
+    o::m30 <- (a::m30 * b::m00) + (a::m31 * b::m10) + (a::m32 * b::m20) + (a::m33 * b::m30).
+    o::m31 <- (a::m30 * b::m01) + (a::m31 * b::m11) + (a::m32 * b::m21) + (a::m33 * b::m31).
+    o::m32 <- (a::m30 * b::m02) + (a::m31 * b::m12) + (a::m32 * b::m22) + (a::m33 * b::m32).
+    o::m33 <- (a::m30 * b::m03) + (a::m31 * b::m13) + (a::m32 * b::m23) + (a::m33 * b::m33).
+^
+
+op fill <- m, s : $
+    m::m00 <- s + 1.   m::m01 <- s + 2.   m::m02 <- s + 3.   m::m03 <- s + 4.
+    m::m10 <- s + 5.   m::m11 <- s + 6.   m::m12 <- s + 7.   m::m13 <- s + 8.
+    m::m20 <- s + 9.   m::m21 <- s + 10.  m::m22 <- s + 11.  m::m23 <- s + 12.
+    m::m30 <- s + 13.  m::m31 <- s + 14.  m::m32 <- s + 15.  m::m33 <- s + 16.
+^
+
+def A <- Mat4.
+def B <- Mat4.
+def C <- Mat4.
+
+// both matrices hold 1 through 16 in row major order
+fill -> A, 0.
+fill -> B, 0.
+
+matmul -> C, A, B.
+
+// hand checked: C00 = 1*1 + 2*5 + 3*9 + 4*13
+log -> C::m00.
+log -> C::m01.
+log -> C::m10.
+log -> C::m22.
+log -> C::m33.
+
+// against the identity a matrix comes back unchanged
+op identity <- m : $
+    m::m00 <- 1.  m::m01 <- 0.  m::m02 <- 0.  m::m03 <- 0.
+    m::m10 <- 0.  m::m11 <- 1.  m::m12 <- 0.  m::m13 <- 0.
+    m::m20 <- 0.  m::m21 <- 0.  m::m22 <- 1.  m::m23 <- 0.
+    m::m30 <- 0.  m::m31 <- 0.  m::m32 <- 0.  m::m33 <- 1.
+^
+
+def I <- Mat4.
+def D <- Mat4.
+
+identity -> I.
+matmul -> D, A, I.
+
+log -> D::m00.
+log -> D::m13.
+log -> D::m33.

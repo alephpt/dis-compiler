@@ -1,0 +1,1244 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// GENERATED. more unique constants than a single byte index can reach, so the
+// wide forms of the constant instructions have to carry them. every value is
+// distinct, which also proves deduplication never merges two different ones.
+
+form Cell <- $
+    v <- f64.
+^
+
+def cells <- Cell[400].
+
+// 400 globals, each with a value nothing else uses
+def w000 <- 1000.
+def w001 <- 1001.
+def w002 <- 1002.
+def w003 <- 1003.
+def w004 <- 1004.
+def w005 <- 1005.
+def w006 <- 1006.
+def w007 <- 1007.
+def w008 <- 1008.
+def w009 <- 1009.
+def w010 <- 1010.
+def w011 <- 1011.
+def w012 <- 1012.
+def w013 <- 1013.
+def w014 <- 1014.
+def w015 <- 1015.
+def w016 <- 1016.
+def w017 <- 1017.
+def w018 <- 1018.
+def w019 <- 1019.
+def w020 <- 1020.
+def w021 <- 1021.
+def w022 <- 1022.
+def w023 <- 1023.
+def w024 <- 1024.
+def w025 <- 1025.
+def w026 <- 1026.
+def w027 <- 1027.
+def w028 <- 1028.
+def w029 <- 1029.
+def w030 <- 1030.
+def w031 <- 1031.
+def w032 <- 1032.
+def w033 <- 1033.
+def w034 <- 1034.
+def w035 <- 1035.
+def w036 <- 1036.
+def w037 <- 1037.
+def w038 <- 1038.
+def w039 <- 1039.
+def w040 <- 1040.
+def w041 <- 1041.
+def w042 <- 1042.
+def w043 <- 1043.
+def w044 <- 1044.
+def w045 <- 1045.
+def w046 <- 1046.
+def w047 <- 1047.
+def w048 <- 1048.
+def w049 <- 1049.
+def w050 <- 1050.
+def w051 <- 1051.
+def w052 <- 1052.
+def w053 <- 1053.
+def w054 <- 1054.
+def w055 <- 1055.
+def w056 <- 1056.
+def w057 <- 1057.
+def w058 <- 1058.
+def w059 <- 1059.
+def w060 <- 1060.
+def w061 <- 1061.
+def w062 <- 1062.
+def w063 <- 1063.
+def w064 <- 1064.
+def w065 <- 1065.
+def w066 <- 1066.
+def w067 <- 1067.
+def w068 <- 1068.
+def w069 <- 1069.
+def w070 <- 1070.
+def w071 <- 1071.
+def w072 <- 1072.
+def w073 <- 1073.
+def w074 <- 1074.
+def w075 <- 1075.
+def w076 <- 1076.
+def w077 <- 1077.
+def w078 <- 1078.
+def w079 <- 1079.
+def w080 <- 1080.
+def w081 <- 1081.
+def w082 <- 1082.
+def w083 <- 1083.
+def w084 <- 1084.
+def w085 <- 1085.
+def w086 <- 1086.
+def w087 <- 1087.
+def w088 <- 1088.
+def w089 <- 1089.
+def w090 <- 1090.
+def w091 <- 1091.
+def w092 <- 1092.
+def w093 <- 1093.
+def w094 <- 1094.
+def w095 <- 1095.
+def w096 <- 1096.
+def w097 <- 1097.
+def w098 <- 1098.
+def w099 <- 1099.
+def w100 <- 1100.
+def w101 <- 1101.
+def w102 <- 1102.
+def w103 <- 1103.
+def w104 <- 1104.
+def w105 <- 1105.
+def w106 <- 1106.
+def w107 <- 1107.
+def w108 <- 1108.
+def w109 <- 1109.
+def w110 <- 1110.
+def w111 <- 1111.
+def w112 <- 1112.
+def w113 <- 1113.
+def w114 <- 1114.
+def w115 <- 1115.
+def w116 <- 1116.
+def w117 <- 1117.
+def w118 <- 1118.
+def w119 <- 1119.
+def w120 <- 1120.
+def w121 <- 1121.
+def w122 <- 1122.
+def w123 <- 1123.
+def w124 <- 1124.
+def w125 <- 1125.
+def w126 <- 1126.
+def w127 <- 1127.
+def w128 <- 1128.
+def w129 <- 1129.
+def w130 <- 1130.
+def w131 <- 1131.
+def w132 <- 1132.
+def w133 <- 1133.
+def w134 <- 1134.
+def w135 <- 1135.
+def w136 <- 1136.
+def w137 <- 1137.
+def w138 <- 1138.
+def w139 <- 1139.
+def w140 <- 1140.
+def w141 <- 1141.
+def w142 <- 1142.
+def w143 <- 1143.
+def w144 <- 1144.
+def w145 <- 1145.
+def w146 <- 1146.
+def w147 <- 1147.
+def w148 <- 1148.
+def w149 <- 1149.
+def w150 <- 1150.
+def w151 <- 1151.
+def w152 <- 1152.
+def w153 <- 1153.
+def w154 <- 1154.
+def w155 <- 1155.
+def w156 <- 1156.
+def w157 <- 1157.
+def w158 <- 1158.
+def w159 <- 1159.
+def w160 <- 1160.
+def w161 <- 1161.
+def w162 <- 1162.
+def w163 <- 1163.
+def w164 <- 1164.
+def w165 <- 1165.
+def w166 <- 1166.
+def w167 <- 1167.
+def w168 <- 1168.
+def w169 <- 1169.
+def w170 <- 1170.
+def w171 <- 1171.
+def w172 <- 1172.
+def w173 <- 1173.
+def w174 <- 1174.
+def w175 <- 1175.
+def w176 <- 1176.
+def w177 <- 1177.
+def w178 <- 1178.
+def w179 <- 1179.
+def w180 <- 1180.
+def w181 <- 1181.
+def w182 <- 1182.
+def w183 <- 1183.
+def w184 <- 1184.
+def w185 <- 1185.
+def w186 <- 1186.
+def w187 <- 1187.
+def w188 <- 1188.
+def w189 <- 1189.
+def w190 <- 1190.
+def w191 <- 1191.
+def w192 <- 1192.
+def w193 <- 1193.
+def w194 <- 1194.
+def w195 <- 1195.
+def w196 <- 1196.
+def w197 <- 1197.
+def w198 <- 1198.
+def w199 <- 1199.
+def w200 <- 1200.
+def w201 <- 1201.
+def w202 <- 1202.
+def w203 <- 1203.
+def w204 <- 1204.
+def w205 <- 1205.
+def w206 <- 1206.
+def w207 <- 1207.
+def w208 <- 1208.
+def w209 <- 1209.
+def w210 <- 1210.
+def w211 <- 1211.
+def w212 <- 1212.
+def w213 <- 1213.
+def w214 <- 1214.
+def w215 <- 1215.
+def w216 <- 1216.
+def w217 <- 1217.
+def w218 <- 1218.
+def w219 <- 1219.
+def w220 <- 1220.
+def w221 <- 1221.
+def w222 <- 1222.
+def w223 <- 1223.
+def w224 <- 1224.
+def w225 <- 1225.
+def w226 <- 1226.
+def w227 <- 1227.
+def w228 <- 1228.
+def w229 <- 1229.
+def w230 <- 1230.
+def w231 <- 1231.
+def w232 <- 1232.
+def w233 <- 1233.
+def w234 <- 1234.
+def w235 <- 1235.
+def w236 <- 1236.
+def w237 <- 1237.
+def w238 <- 1238.
+def w239 <- 1239.
+def w240 <- 1240.
+def w241 <- 1241.
+def w242 <- 1242.
+def w243 <- 1243.
+def w244 <- 1244.
+def w245 <- 1245.
+def w246 <- 1246.
+def w247 <- 1247.
+def w248 <- 1248.
+def w249 <- 1249.
+def w250 <- 1250.
+def w251 <- 1251.
+def w252 <- 1252.
+def w253 <- 1253.
+def w254 <- 1254.
+def w255 <- 1255.
+def w256 <- 1256.
+def w257 <- 1257.
+def w258 <- 1258.
+def w259 <- 1259.
+def w260 <- 1260.
+def w261 <- 1261.
+def w262 <- 1262.
+def w263 <- 1263.
+def w264 <- 1264.
+def w265 <- 1265.
+def w266 <- 1266.
+def w267 <- 1267.
+def w268 <- 1268.
+def w269 <- 1269.
+def w270 <- 1270.
+def w271 <- 1271.
+def w272 <- 1272.
+def w273 <- 1273.
+def w274 <- 1274.
+def w275 <- 1275.
+def w276 <- 1276.
+def w277 <- 1277.
+def w278 <- 1278.
+def w279 <- 1279.
+def w280 <- 1280.
+def w281 <- 1281.
+def w282 <- 1282.
+def w283 <- 1283.
+def w284 <- 1284.
+def w285 <- 1285.
+def w286 <- 1286.
+def w287 <- 1287.
+def w288 <- 1288.
+def w289 <- 1289.
+def w290 <- 1290.
+def w291 <- 1291.
+def w292 <- 1292.
+def w293 <- 1293.
+def w294 <- 1294.
+def w295 <- 1295.
+def w296 <- 1296.
+def w297 <- 1297.
+def w298 <- 1298.
+def w299 <- 1299.
+def w300 <- 1300.
+def w301 <- 1301.
+def w302 <- 1302.
+def w303 <- 1303.
+def w304 <- 1304.
+def w305 <- 1305.
+def w306 <- 1306.
+def w307 <- 1307.
+def w308 <- 1308.
+def w309 <- 1309.
+def w310 <- 1310.
+def w311 <- 1311.
+def w312 <- 1312.
+def w313 <- 1313.
+def w314 <- 1314.
+def w315 <- 1315.
+def w316 <- 1316.
+def w317 <- 1317.
+def w318 <- 1318.
+def w319 <- 1319.
+def w320 <- 1320.
+def w321 <- 1321.
+def w322 <- 1322.
+def w323 <- 1323.
+def w324 <- 1324.
+def w325 <- 1325.
+def w326 <- 1326.
+def w327 <- 1327.
+def w328 <- 1328.
+def w329 <- 1329.
+def w330 <- 1330.
+def w331 <- 1331.
+def w332 <- 1332.
+def w333 <- 1333.
+def w334 <- 1334.
+def w335 <- 1335.
+def w336 <- 1336.
+def w337 <- 1337.
+def w338 <- 1338.
+def w339 <- 1339.
+def w340 <- 1340.
+def w341 <- 1341.
+def w342 <- 1342.
+def w343 <- 1343.
+def w344 <- 1344.
+def w345 <- 1345.
+def w346 <- 1346.
+def w347 <- 1347.
+def w348 <- 1348.
+def w349 <- 1349.
+def w350 <- 1350.
+def w351 <- 1351.
+def w352 <- 1352.
+def w353 <- 1353.
+def w354 <- 1354.
+def w355 <- 1355.
+def w356 <- 1356.
+def w357 <- 1357.
+def w358 <- 1358.
+def w359 <- 1359.
+def w360 <- 1360.
+def w361 <- 1361.
+def w362 <- 1362.
+def w363 <- 1363.
+def w364 <- 1364.
+def w365 <- 1365.
+def w366 <- 1366.
+def w367 <- 1367.
+def w368 <- 1368.
+def w369 <- 1369.
+def w370 <- 1370.
+def w371 <- 1371.
+def w372 <- 1372.
+def w373 <- 1373.
+def w374 <- 1374.
+def w375 <- 1375.
+def w376 <- 1376.
+def w377 <- 1377.
+def w378 <- 1378.
+def w379 <- 1379.
+def w380 <- 1380.
+def w381 <- 1381.
+def w382 <- 1382.
+def w383 <- 1383.
+def w384 <- 1384.
+def w385 <- 1385.
+def w386 <- 1386.
+def w387 <- 1387.
+def w388 <- 1388.
+def w389 <- 1389.
+def w390 <- 1390.
+def w391 <- 1391.
+def w392 <- 1392.
+def w393 <- 1393.
+def w394 <- 1394.
+def w395 <- 1395.
+def w396 <- 1396.
+def w397 <- 1397.
+def w398 <- 1398.
+def w399 <- 1399.
+
+// 400 member stores at 400 distinct literal indices with 400 distinct values
+cells[0]::v <- 0.0.
+cells[1]::v <- 0.25.
+cells[2]::v <- 0.5.
+cells[3]::v <- 0.75.
+cells[4]::v <- 1.0.
+cells[5]::v <- 1.25.
+cells[6]::v <- 1.5.
+cells[7]::v <- 1.75.
+cells[8]::v <- 2.0.
+cells[9]::v <- 2.25.
+cells[10]::v <- 2.5.
+cells[11]::v <- 2.75.
+cells[12]::v <- 3.0.
+cells[13]::v <- 3.25.
+cells[14]::v <- 3.5.
+cells[15]::v <- 3.75.
+cells[16]::v <- 4.0.
+cells[17]::v <- 4.25.
+cells[18]::v <- 4.5.
+cells[19]::v <- 4.75.
+cells[20]::v <- 5.0.
+cells[21]::v <- 5.25.
+cells[22]::v <- 5.5.
+cells[23]::v <- 5.75.
+cells[24]::v <- 6.0.
+cells[25]::v <- 6.25.
+cells[26]::v <- 6.5.
+cells[27]::v <- 6.75.
+cells[28]::v <- 7.0.
+cells[29]::v <- 7.25.
+cells[30]::v <- 7.5.
+cells[31]::v <- 7.75.
+cells[32]::v <- 8.0.
+cells[33]::v <- 8.25.
+cells[34]::v <- 8.5.
+cells[35]::v <- 8.75.
+cells[36]::v <- 9.0.
+cells[37]::v <- 9.25.
+cells[38]::v <- 9.5.
+cells[39]::v <- 9.75.
+cells[40]::v <- 10.0.
+cells[41]::v <- 10.25.
+cells[42]::v <- 10.5.
+cells[43]::v <- 10.75.
+cells[44]::v <- 11.0.
+cells[45]::v <- 11.25.
+cells[46]::v <- 11.5.
+cells[47]::v <- 11.75.
+cells[48]::v <- 12.0.
+cells[49]::v <- 12.25.
+cells[50]::v <- 12.5.
+cells[51]::v <- 12.75.
+cells[52]::v <- 13.0.
+cells[53]::v <- 13.25.
+cells[54]::v <- 13.5.
+cells[55]::v <- 13.75.
+cells[56]::v <- 14.0.
+cells[57]::v <- 14.25.
+cells[58]::v <- 14.5.
+cells[59]::v <- 14.75.
+cells[60]::v <- 15.0.
+cells[61]::v <- 15.25.
+cells[62]::v <- 15.5.
+cells[63]::v <- 15.75.
+cells[64]::v <- 16.0.
+cells[65]::v <- 16.25.
+cells[66]::v <- 16.5.
+cells[67]::v <- 16.75.
+cells[68]::v <- 17.0.
+cells[69]::v <- 17.25.
+cells[70]::v <- 17.5.
+cells[71]::v <- 17.75.
+cells[72]::v <- 18.0.
+cells[73]::v <- 18.25.
+cells[74]::v <- 18.5.
+cells[75]::v <- 18.75.
+cells[76]::v <- 19.0.
+cells[77]::v <- 19.25.
+cells[78]::v <- 19.5.
+cells[79]::v <- 19.75.
+cells[80]::v <- 20.0.
+cells[81]::v <- 20.25.
+cells[82]::v <- 20.5.
+cells[83]::v <- 20.75.
+cells[84]::v <- 21.0.
+cells[85]::v <- 21.25.
+cells[86]::v <- 21.5.
+cells[87]::v <- 21.75.
+cells[88]::v <- 22.0.
+cells[89]::v <- 22.25.
+cells[90]::v <- 22.5.
+cells[91]::v <- 22.75.
+cells[92]::v <- 23.0.
+cells[93]::v <- 23.25.
+cells[94]::v <- 23.5.
+cells[95]::v <- 23.75.
+cells[96]::v <- 24.0.
+cells[97]::v <- 24.25.
+cells[98]::v <- 24.5.
+cells[99]::v <- 24.75.
+cells[100]::v <- 25.0.
+cells[101]::v <- 25.25.
+cells[102]::v <- 25.5.
+cells[103]::v <- 25.75.
+cells[104]::v <- 26.0.
+cells[105]::v <- 26.25.
+cells[106]::v <- 26.5.
+cells[107]::v <- 26.75.
+cells[108]::v <- 27.0.
+cells[109]::v <- 27.25.
+cells[110]::v <- 27.5.
+cells[111]::v <- 27.75.
+cells[112]::v <- 28.0.
+cells[113]::v <- 28.25.
+cells[114]::v <- 28.5.
+cells[115]::v <- 28.75.
+cells[116]::v <- 29.0.
+cells[117]::v <- 29.25.
+cells[118]::v <- 29.5.
+cells[119]::v <- 29.75.
+cells[120]::v <- 30.0.
+cells[121]::v <- 30.25.
+cells[122]::v <- 30.5.
+cells[123]::v <- 30.75.
+cells[124]::v <- 31.0.
+cells[125]::v <- 31.25.
+cells[126]::v <- 31.5.
+cells[127]::v <- 31.75.
+cells[128]::v <- 32.0.
+cells[129]::v <- 32.25.
+cells[130]::v <- 32.5.
+cells[131]::v <- 32.75.
+cells[132]::v <- 33.0.
+cells[133]::v <- 33.25.
+cells[134]::v <- 33.5.
+cells[135]::v <- 33.75.
+cells[136]::v <- 34.0.
+cells[137]::v <- 34.25.
+cells[138]::v <- 34.5.
+cells[139]::v <- 34.75.
+cells[140]::v <- 35.0.
+cells[141]::v <- 35.25.
+cells[142]::v <- 35.5.
+cells[143]::v <- 35.75.
+cells[144]::v <- 36.0.
+cells[145]::v <- 36.25.
+cells[146]::v <- 36.5.
+cells[147]::v <- 36.75.
+cells[148]::v <- 37.0.
+cells[149]::v <- 37.25.
+cells[150]::v <- 37.5.
+cells[151]::v <- 37.75.
+cells[152]::v <- 38.0.
+cells[153]::v <- 38.25.
+cells[154]::v <- 38.5.
+cells[155]::v <- 38.75.
+cells[156]::v <- 39.0.
+cells[157]::v <- 39.25.
+cells[158]::v <- 39.5.
+cells[159]::v <- 39.75.
+cells[160]::v <- 40.0.
+cells[161]::v <- 40.25.
+cells[162]::v <- 40.5.
+cells[163]::v <- 40.75.
+cells[164]::v <- 41.0.
+cells[165]::v <- 41.25.
+cells[166]::v <- 41.5.
+cells[167]::v <- 41.75.
+cells[168]::v <- 42.0.
+cells[169]::v <- 42.25.
+cells[170]::v <- 42.5.
+cells[171]::v <- 42.75.
+cells[172]::v <- 43.0.
+cells[173]::v <- 43.25.
+cells[174]::v <- 43.5.
+cells[175]::v <- 43.75.
+cells[176]::v <- 44.0.
+cells[177]::v <- 44.25.
+cells[178]::v <- 44.5.
+cells[179]::v <- 44.75.
+cells[180]::v <- 45.0.
+cells[181]::v <- 45.25.
+cells[182]::v <- 45.5.
+cells[183]::v <- 45.75.
+cells[184]::v <- 46.0.
+cells[185]::v <- 46.25.
+cells[186]::v <- 46.5.
+cells[187]::v <- 46.75.
+cells[188]::v <- 47.0.
+cells[189]::v <- 47.25.
+cells[190]::v <- 47.5.
+cells[191]::v <- 47.75.
+cells[192]::v <- 48.0.
+cells[193]::v <- 48.25.
+cells[194]::v <- 48.5.
+cells[195]::v <- 48.75.
+cells[196]::v <- 49.0.
+cells[197]::v <- 49.25.
+cells[198]::v <- 49.5.
+cells[199]::v <- 49.75.
+cells[200]::v <- 50.0.
+cells[201]::v <- 50.25.
+cells[202]::v <- 50.5.
+cells[203]::v <- 50.75.
+cells[204]::v <- 51.0.
+cells[205]::v <- 51.25.
+cells[206]::v <- 51.5.
+cells[207]::v <- 51.75.
+cells[208]::v <- 52.0.
+cells[209]::v <- 52.25.
+cells[210]::v <- 52.5.
+cells[211]::v <- 52.75.
+cells[212]::v <- 53.0.
+cells[213]::v <- 53.25.
+cells[214]::v <- 53.5.
+cells[215]::v <- 53.75.
+cells[216]::v <- 54.0.
+cells[217]::v <- 54.25.
+cells[218]::v <- 54.5.
+cells[219]::v <- 54.75.
+cells[220]::v <- 55.0.
+cells[221]::v <- 55.25.
+cells[222]::v <- 55.5.
+cells[223]::v <- 55.75.
+cells[224]::v <- 56.0.
+cells[225]::v <- 56.25.
+cells[226]::v <- 56.5.
+cells[227]::v <- 56.75.
+cells[228]::v <- 57.0.
+cells[229]::v <- 57.25.
+cells[230]::v <- 57.5.
+cells[231]::v <- 57.75.
+cells[232]::v <- 58.0.
+cells[233]::v <- 58.25.
+cells[234]::v <- 58.5.
+cells[235]::v <- 58.75.
+cells[236]::v <- 59.0.
+cells[237]::v <- 59.25.
+cells[238]::v <- 59.5.
+cells[239]::v <- 59.75.
+cells[240]::v <- 60.0.
+cells[241]::v <- 60.25.
+cells[242]::v <- 60.5.
+cells[243]::v <- 60.75.
+cells[244]::v <- 61.0.
+cells[245]::v <- 61.25.
+cells[246]::v <- 61.5.
+cells[247]::v <- 61.75.
+cells[248]::v <- 62.0.
+cells[249]::v <- 62.25.
+cells[250]::v <- 62.5.
+cells[251]::v <- 62.75.
+cells[252]::v <- 63.0.
+cells[253]::v <- 63.25.
+cells[254]::v <- 63.5.
+cells[255]::v <- 63.75.
+cells[256]::v <- 64.0.
+cells[257]::v <- 64.25.
+cells[258]::v <- 64.5.
+cells[259]::v <- 64.75.
+cells[260]::v <- 65.0.
+cells[261]::v <- 65.25.
+cells[262]::v <- 65.5.
+cells[263]::v <- 65.75.
+cells[264]::v <- 66.0.
+cells[265]::v <- 66.25.
+cells[266]::v <- 66.5.
+cells[267]::v <- 66.75.
+cells[268]::v <- 67.0.
+cells[269]::v <- 67.25.
+cells[270]::v <- 67.5.
+cells[271]::v <- 67.75.
+cells[272]::v <- 68.0.
+cells[273]::v <- 68.25.
+cells[274]::v <- 68.5.
+cells[275]::v <- 68.75.
+cells[276]::v <- 69.0.
+cells[277]::v <- 69.25.
+cells[278]::v <- 69.5.
+cells[279]::v <- 69.75.
+cells[280]::v <- 70.0.
+cells[281]::v <- 70.25.
+cells[282]::v <- 70.5.
+cells[283]::v <- 70.75.
+cells[284]::v <- 71.0.
+cells[285]::v <- 71.25.
+cells[286]::v <- 71.5.
+cells[287]::v <- 71.75.
+cells[288]::v <- 72.0.
+cells[289]::v <- 72.25.
+cells[290]::v <- 72.5.
+cells[291]::v <- 72.75.
+cells[292]::v <- 73.0.
+cells[293]::v <- 73.25.
+cells[294]::v <- 73.5.
+cells[295]::v <- 73.75.
+cells[296]::v <- 74.0.
+cells[297]::v <- 74.25.
+cells[298]::v <- 74.5.
+cells[299]::v <- 74.75.
+cells[300]::v <- 75.0.
+cells[301]::v <- 75.25.
+cells[302]::v <- 75.5.
+cells[303]::v <- 75.75.
+cells[304]::v <- 76.0.
+cells[305]::v <- 76.25.
+cells[306]::v <- 76.5.
+cells[307]::v <- 76.75.
+cells[308]::v <- 77.0.
+cells[309]::v <- 77.25.
+cells[310]::v <- 77.5.
+cells[311]::v <- 77.75.
+cells[312]::v <- 78.0.
+cells[313]::v <- 78.25.
+cells[314]::v <- 78.5.
+cells[315]::v <- 78.75.
+cells[316]::v <- 79.0.
+cells[317]::v <- 79.25.
+cells[318]::v <- 79.5.
+cells[319]::v <- 79.75.
+cells[320]::v <- 80.0.
+cells[321]::v <- 80.25.
+cells[322]::v <- 80.5.
+cells[323]::v <- 80.75.
+cells[324]::v <- 81.0.
+cells[325]::v <- 81.25.
+cells[326]::v <- 81.5.
+cells[327]::v <- 81.75.
+cells[328]::v <- 82.0.
+cells[329]::v <- 82.25.
+cells[330]::v <- 82.5.
+cells[331]::v <- 82.75.
+cells[332]::v <- 83.0.
+cells[333]::v <- 83.25.
+cells[334]::v <- 83.5.
+cells[335]::v <- 83.75.
+cells[336]::v <- 84.0.
+cells[337]::v <- 84.25.
+cells[338]::v <- 84.5.
+cells[339]::v <- 84.75.
+cells[340]::v <- 85.0.
+cells[341]::v <- 85.25.
+cells[342]::v <- 85.5.
+cells[343]::v <- 85.75.
+cells[344]::v <- 86.0.
+cells[345]::v <- 86.25.
+cells[346]::v <- 86.5.
+cells[347]::v <- 86.75.
+cells[348]::v <- 87.0.
+cells[349]::v <- 87.25.
+cells[350]::v <- 87.5.
+cells[351]::v <- 87.75.
+cells[352]::v <- 88.0.
+cells[353]::v <- 88.25.
+cells[354]::v <- 88.5.
+cells[355]::v <- 88.75.
+cells[356]::v <- 89.0.
+cells[357]::v <- 89.25.
+cells[358]::v <- 89.5.
+cells[359]::v <- 89.75.
+cells[360]::v <- 90.0.
+cells[361]::v <- 90.25.
+cells[362]::v <- 90.5.
+cells[363]::v <- 90.75.
+cells[364]::v <- 91.0.
+cells[365]::v <- 91.25.
+cells[366]::v <- 91.5.
+cells[367]::v <- 91.75.
+cells[368]::v <- 92.0.
+cells[369]::v <- 92.25.
+cells[370]::v <- 92.5.
+cells[371]::v <- 92.75.
+cells[372]::v <- 93.0.
+cells[373]::v <- 93.25.
+cells[374]::v <- 93.5.
+cells[375]::v <- 93.75.
+cells[376]::v <- 94.0.
+cells[377]::v <- 94.25.
+cells[378]::v <- 94.5.
+cells[379]::v <- 94.75.
+cells[380]::v <- 95.0.
+cells[381]::v <- 95.25.
+cells[382]::v <- 95.5.
+cells[383]::v <- 95.75.
+cells[384]::v <- 96.0.
+cells[385]::v <- 96.25.
+cells[386]::v <- 96.5.
+cells[387]::v <- 96.75.
+cells[388]::v <- 97.0.
+cells[389]::v <- 97.25.
+cells[390]::v <- 97.5.
+cells[391]::v <- 97.75.
+cells[392]::v <- 98.0.
+cells[393]::v <- 98.25.
+cells[394]::v <- 98.5.
+cells[395]::v <- 98.75.
+cells[396]::v <- 99.0.
+cells[397]::v <- 99.25.
+cells[398]::v <- 99.5.
+cells[399]::v <- 99.75.
+
+def gsum <- 0.
+gsum <- gsum + w000.
+gsum <- gsum + w001.
+gsum <- gsum + w002.
+gsum <- gsum + w003.
+gsum <- gsum + w004.
+gsum <- gsum + w005.
+gsum <- gsum + w006.
+gsum <- gsum + w007.
+gsum <- gsum + w008.
+gsum <- gsum + w009.
+gsum <- gsum + w010.
+gsum <- gsum + w011.
+gsum <- gsum + w012.
+gsum <- gsum + w013.
+gsum <- gsum + w014.
+gsum <- gsum + w015.
+gsum <- gsum + w016.
+gsum <- gsum + w017.
+gsum <- gsum + w018.
+gsum <- gsum + w019.
+gsum <- gsum + w020.
+gsum <- gsum + w021.
+gsum <- gsum + w022.
+gsum <- gsum + w023.
+gsum <- gsum + w024.
+gsum <- gsum + w025.
+gsum <- gsum + w026.
+gsum <- gsum + w027.
+gsum <- gsum + w028.
+gsum <- gsum + w029.
+gsum <- gsum + w030.
+gsum <- gsum + w031.
+gsum <- gsum + w032.
+gsum <- gsum + w033.
+gsum <- gsum + w034.
+gsum <- gsum + w035.
+gsum <- gsum + w036.
+gsum <- gsum + w037.
+gsum <- gsum + w038.
+gsum <- gsum + w039.
+gsum <- gsum + w040.
+gsum <- gsum + w041.
+gsum <- gsum + w042.
+gsum <- gsum + w043.
+gsum <- gsum + w044.
+gsum <- gsum + w045.
+gsum <- gsum + w046.
+gsum <- gsum + w047.
+gsum <- gsum + w048.
+gsum <- gsum + w049.
+gsum <- gsum + w050.
+gsum <- gsum + w051.
+gsum <- gsum + w052.
+gsum <- gsum + w053.
+gsum <- gsum + w054.
+gsum <- gsum + w055.
+gsum <- gsum + w056.
+gsum <- gsum + w057.
+gsum <- gsum + w058.
+gsum <- gsum + w059.
+gsum <- gsum + w060.
+gsum <- gsum + w061.
+gsum <- gsum + w062.
+gsum <- gsum + w063.
+gsum <- gsum + w064.
+gsum <- gsum + w065.
+gsum <- gsum + w066.
+gsum <- gsum + w067.
+gsum <- gsum + w068.
+gsum <- gsum + w069.
+gsum <- gsum + w070.
+gsum <- gsum + w071.
+gsum <- gsum + w072.
+gsum <- gsum + w073.
+gsum <- gsum + w074.
+gsum <- gsum + w075.
+gsum <- gsum + w076.
+gsum <- gsum + w077.
+gsum <- gsum + w078.
+gsum <- gsum + w079.
+gsum <- gsum + w080.
+gsum <- gsum + w081.
+gsum <- gsum + w082.
+gsum <- gsum + w083.
+gsum <- gsum + w084.
+gsum <- gsum + w085.
+gsum <- gsum + w086.
+gsum <- gsum + w087.
+gsum <- gsum + w088.
+gsum <- gsum + w089.
+gsum <- gsum + w090.
+gsum <- gsum + w091.
+gsum <- gsum + w092.
+gsum <- gsum + w093.
+gsum <- gsum + w094.
+gsum <- gsum + w095.
+gsum <- gsum + w096.
+gsum <- gsum + w097.
+gsum <- gsum + w098.
+gsum <- gsum + w099.
+gsum <- gsum + w100.
+gsum <- gsum + w101.
+gsum <- gsum + w102.
+gsum <- gsum + w103.
+gsum <- gsum + w104.
+gsum <- gsum + w105.
+gsum <- gsum + w106.
+gsum <- gsum + w107.
+gsum <- gsum + w108.
+gsum <- gsum + w109.
+gsum <- gsum + w110.
+gsum <- gsum + w111.
+gsum <- gsum + w112.
+gsum <- gsum + w113.
+gsum <- gsum + w114.
+gsum <- gsum + w115.
+gsum <- gsum + w116.
+gsum <- gsum + w117.
+gsum <- gsum + w118.
+gsum <- gsum + w119.
+gsum <- gsum + w120.
+gsum <- gsum + w121.
+gsum <- gsum + w122.
+gsum <- gsum + w123.
+gsum <- gsum + w124.
+gsum <- gsum + w125.
+gsum <- gsum + w126.
+gsum <- gsum + w127.
+gsum <- gsum + w128.
+gsum <- gsum + w129.
+gsum <- gsum + w130.
+gsum <- gsum + w131.
+gsum <- gsum + w132.
+gsum <- gsum + w133.
+gsum <- gsum + w134.
+gsum <- gsum + w135.
+gsum <- gsum + w136.
+gsum <- gsum + w137.
+gsum <- gsum + w138.
+gsum <- gsum + w139.
+gsum <- gsum + w140.
+gsum <- gsum + w141.
+gsum <- gsum + w142.
+gsum <- gsum + w143.
+gsum <- gsum + w144.
+gsum <- gsum + w145.
+gsum <- gsum + w146.
+gsum <- gsum + w147.
+gsum <- gsum + w148.
+gsum <- gsum + w149.
+gsum <- gsum + w150.
+gsum <- gsum + w151.
+gsum <- gsum + w152.
+gsum <- gsum + w153.
+gsum <- gsum + w154.
+gsum <- gsum + w155.
+gsum <- gsum + w156.
+gsum <- gsum + w157.
+gsum <- gsum + w158.
+gsum <- gsum + w159.
+gsum <- gsum + w160.
+gsum <- gsum + w161.
+gsum <- gsum + w162.
+gsum <- gsum + w163.
+gsum <- gsum + w164.
+gsum <- gsum + w165.
+gsum <- gsum + w166.
+gsum <- gsum + w167.
+gsum <- gsum + w168.
+gsum <- gsum + w169.
+gsum <- gsum + w170.
+gsum <- gsum + w171.
+gsum <- gsum + w172.
+gsum <- gsum + w173.
+gsum <- gsum + w174.
+gsum <- gsum + w175.
+gsum <- gsum + w176.
+gsum <- gsum + w177.
+gsum <- gsum + w178.
+gsum <- gsum + w179.
+gsum <- gsum + w180.
+gsum <- gsum + w181.
+gsum <- gsum + w182.
+gsum <- gsum + w183.
+gsum <- gsum + w184.
+gsum <- gsum + w185.
+gsum <- gsum + w186.
+gsum <- gsum + w187.
+gsum <- gsum + w188.
+gsum <- gsum + w189.
+gsum <- gsum + w190.
+gsum <- gsum + w191.
+gsum <- gsum + w192.
+gsum <- gsum + w193.
+gsum <- gsum + w194.
+gsum <- gsum + w195.
+gsum <- gsum + w196.
+gsum <- gsum + w197.
+gsum <- gsum + w198.
+gsum <- gsum + w199.
+gsum <- gsum + w200.
+gsum <- gsum + w201.
+gsum <- gsum + w202.
+gsum <- gsum + w203.
+gsum <- gsum + w204.
+gsum <- gsum + w205.
+gsum <- gsum + w206.
+gsum <- gsum + w207.
+gsum <- gsum + w208.
+gsum <- gsum + w209.
+gsum <- gsum + w210.
+gsum <- gsum + w211.
+gsum <- gsum + w212.
+gsum <- gsum + w213.
+gsum <- gsum + w214.
+gsum <- gsum + w215.
+gsum <- gsum + w216.
+gsum <- gsum + w217.
+gsum <- gsum + w218.
+gsum <- gsum + w219.
+gsum <- gsum + w220.
+gsum <- gsum + w221.
+gsum <- gsum + w222.
+gsum <- gsum + w223.
+gsum <- gsum + w224.
+gsum <- gsum + w225.
+gsum <- gsum + w226.
+gsum <- gsum + w227.
+gsum <- gsum + w228.
+gsum <- gsum + w229.
+gsum <- gsum + w230.
+gsum <- gsum + w231.
+gsum <- gsum + w232.
+gsum <- gsum + w233.
+gsum <- gsum + w234.
+gsum <- gsum + w235.
+gsum <- gsum + w236.
+gsum <- gsum + w237.
+gsum <- gsum + w238.
+gsum <- gsum + w239.
+gsum <- gsum + w240.
+gsum <- gsum + w241.
+gsum <- gsum + w242.
+gsum <- gsum + w243.
+gsum <- gsum + w244.
+gsum <- gsum + w245.
+gsum <- gsum + w246.
+gsum <- gsum + w247.
+gsum <- gsum + w248.
+gsum <- gsum + w249.
+gsum <- gsum + w250.
+gsum <- gsum + w251.
+gsum <- gsum + w252.
+gsum <- gsum + w253.
+gsum <- gsum + w254.
+gsum <- gsum + w255.
+gsum <- gsum + w256.
+gsum <- gsum + w257.
+gsum <- gsum + w258.
+gsum <- gsum + w259.
+gsum <- gsum + w260.
+gsum <- gsum + w261.
+gsum <- gsum + w262.
+gsum <- gsum + w263.
+gsum <- gsum + w264.
+gsum <- gsum + w265.
+gsum <- gsum + w266.
+gsum <- gsum + w267.
+gsum <- gsum + w268.
+gsum <- gsum + w269.
+gsum <- gsum + w270.
+gsum <- gsum + w271.
+gsum <- gsum + w272.
+gsum <- gsum + w273.
+gsum <- gsum + w274.
+gsum <- gsum + w275.
+gsum <- gsum + w276.
+gsum <- gsum + w277.
+gsum <- gsum + w278.
+gsum <- gsum + w279.
+gsum <- gsum + w280.
+gsum <- gsum + w281.
+gsum <- gsum + w282.
+gsum <- gsum + w283.
+gsum <- gsum + w284.
+gsum <- gsum + w285.
+gsum <- gsum + w286.
+gsum <- gsum + w287.
+gsum <- gsum + w288.
+gsum <- gsum + w289.
+gsum <- gsum + w290.
+gsum <- gsum + w291.
+gsum <- gsum + w292.
+gsum <- gsum + w293.
+gsum <- gsum + w294.
+gsum <- gsum + w295.
+gsum <- gsum + w296.
+gsum <- gsum + w297.
+gsum <- gsum + w298.
+gsum <- gsum + w299.
+gsum <- gsum + w300.
+gsum <- gsum + w301.
+gsum <- gsum + w302.
+gsum <- gsum + w303.
+gsum <- gsum + w304.
+gsum <- gsum + w305.
+gsum <- gsum + w306.
+gsum <- gsum + w307.
+gsum <- gsum + w308.
+gsum <- gsum + w309.
+gsum <- gsum + w310.
+gsum <- gsum + w311.
+gsum <- gsum + w312.
+gsum <- gsum + w313.
+gsum <- gsum + w314.
+gsum <- gsum + w315.
+gsum <- gsum + w316.
+gsum <- gsum + w317.
+gsum <- gsum + w318.
+gsum <- gsum + w319.
+gsum <- gsum + w320.
+gsum <- gsum + w321.
+gsum <- gsum + w322.
+gsum <- gsum + w323.
+gsum <- gsum + w324.
+gsum <- gsum + w325.
+gsum <- gsum + w326.
+gsum <- gsum + w327.
+gsum <- gsum + w328.
+gsum <- gsum + w329.
+gsum <- gsum + w330.
+gsum <- gsum + w331.
+gsum <- gsum + w332.
+gsum <- gsum + w333.
+gsum <- gsum + w334.
+gsum <- gsum + w335.
+gsum <- gsum + w336.
+gsum <- gsum + w337.
+gsum <- gsum + w338.
+gsum <- gsum + w339.
+gsum <- gsum + w340.
+gsum <- gsum + w341.
+gsum <- gsum + w342.
+gsum <- gsum + w343.
+gsum <- gsum + w344.
+gsum <- gsum + w345.
+gsum <- gsum + w346.
+gsum <- gsum + w347.
+gsum <- gsum + w348.
+gsum <- gsum + w349.
+gsum <- gsum + w350.
+gsum <- gsum + w351.
+gsum <- gsum + w352.
+gsum <- gsum + w353.
+gsum <- gsum + w354.
+gsum <- gsum + w355.
+gsum <- gsum + w356.
+gsum <- gsum + w357.
+gsum <- gsum + w358.
+gsum <- gsum + w359.
+gsum <- gsum + w360.
+gsum <- gsum + w361.
+gsum <- gsum + w362.
+gsum <- gsum + w363.
+gsum <- gsum + w364.
+gsum <- gsum + w365.
+gsum <- gsum + w366.
+gsum <- gsum + w367.
+gsum <- gsum + w368.
+gsum <- gsum + w369.
+gsum <- gsum + w370.
+gsum <- gsum + w371.
+gsum <- gsum + w372.
+gsum <- gsum + w373.
+gsum <- gsum + w374.
+gsum <- gsum + w375.
+gsum <- gsum + w376.
+gsum <- gsum + w377.
+gsum <- gsum + w378.
+gsum <- gsum + w379.
+gsum <- gsum + w380.
+gsum <- gsum + w381.
+gsum <- gsum + w382.
+gsum <- gsum + w383.
+gsum <- gsum + w384.
+gsum <- gsum + w385.
+gsum <- gsum + w386.
+gsum <- gsum + w387.
+gsum <- gsum + w388.
+gsum <- gsum + w389.
+gsum <- gsum + w390.
+gsum <- gsum + w391.
+gsum <- gsum + w392.
+gsum <- gsum + w393.
+gsum <- gsum + w394.
+gsum <- gsum + w395.
+gsum <- gsum + w396.
+gsum <- gsum + w397.
+gsum <- gsum + w398.
+gsum <- gsum + w399.
+
+def csum <- 0.
+as, def i <- 0.(++) < 400:
+    csum <- csum + cells[i]::v.
+
+log -> gsum.
+log -> csum.
+
+// individual values have to come back exactly, not merged with a neighbour
+log -> w000.
+log -> w001.
+log -> w255.
+log -> w256.
+log -> w257.
+log -> w398.
+log -> w399.
+log -> cells[0]::v.
+log -> cells[1]::v.
+log -> cells[255]::v.
+log -> cells[256]::v.
+log -> cells[257]::v.
+log -> cells[399]::v.
+
+// and distinct constants must stay distinct
+log -> w255 == w256.
+log -> cells[255]::v == cells[256]::v.
+log -> count -> cells.
