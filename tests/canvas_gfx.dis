@@ -1,0 +1,132 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// The canvas drawing layer, exercised without a window. Everything here is the
+// same code raster/main.dis draws with - only the display is missing.
+
+include -> "../raster/math.dis".
+include -> "../raster/gfx.dis".
+
+// ---- packing ----
+
+log -> rgba -> 0, 0, 0, 0.
+log -> (rgba -> 255, 0, 0, 255) == 4278190335.
+log -> (opaque -> 255, 0, 0) == 4278190335.
+log -> (opaque -> 0, 255, 0) == 4278255360.
+log -> (opaque -> 0, 0, 255) == 4294901760.
+
+// and back out again
+def c <- opaque -> 18, 52, 86.
+log -> redOf -> c.
+log -> greenOf -> c.
+log -> blueOf -> c.
+
+// every channel survives a round trip at the ends of its range
+def w <- opaque -> 255, 255, 255.
+log -> redOf -> w.
+log -> greenOf -> w.
+log -> blueOf -> w.
+
+// ---- numeric helpers ----
+
+log -> clamp -> 5, 0, 1.
+log -> clamp -> 0 - 5, 0, 1.
+log -> clamp -> 0.5, 0, 1.
+log -> clampi -> 7.9, 0, 4.
+log -> clampi -> 0 - 7.9, 0, 4.
+log -> lerp -> 0, 10, 0.25.
+log -> ramp -> 5, 0, 10.
+log -> ramp -> 50, 0, 10.
+log -> ramp -> 0 - 50, 0, 10.
+log -> ramp -> 5, 3, 3.
+log -> sign -> 0 - 4.
+log -> sign -> 4.
+log -> sign -> 0.
+log -> absi -> 0 - 3.5.
+
+// ---- surfaces ----
+
+def W <- 16.
+def H <- 8.
+def fb <- Px[0].
+
+grow -> fb, W * H.
+
+def BG <- opaque -> 1, 2, 3.
+def FG <- opaque -> 200, 100, 50.
+
+log -> clear -> fb, BG.
+log -> fb[0]::v == BG.
+log -> fb[127]::v == BG.
+
+// a rect covers exactly the cells it names, ends included
+log -> fillRect -> fb, W, H, 2, 1, 5, 3, FG.
+log -> fb[(1 * 16) + 2]::v == FG.
+log -> fb[(1 * 16) + 5]::v == FG.
+log -> fb[(3 * 16) + 2]::v == FG.
+log -> fb[(3 * 16) + 5]::v == FG.
+log -> fb[(1 * 16) + 1]::v == BG.
+log -> fb[(1 * 16) + 6]::v == BG.
+log -> fb[(0 * 16) + 2]::v == BG.
+log -> fb[(4 * 16) + 2]::v == BG.
+
+// a rect reaching past every edge is clipped to the surface, never past it
+clear -> fb, BG.
+log -> fillRect -> fb, W, H, 0 - 100, 0 - 100, 999, 999, FG.
+log -> fb[0]::v == FG.
+log -> fb[127]::v == FG.
+
+// one wholly outside it paints nothing at all
+clear -> fb, BG.
+log -> fillRect -> fb, W, H, 100, 2, 200, 3, FG.
+log -> fillRect -> fb, W, H, 0 - 200, 2, 0 - 100, 3, FG.
+log -> fb[(2 * 16) + 0]::v == BG.
+
+// the ends of a rect may arrive either way round
+clear -> fb, BG.
+log -> fillRect -> fb, W, H, 5, 3, 2, 1, FG.
+log -> fb[(2 * 16) + 3]::v == FG.
+
+// a hollow box touches its border and leaves the middle alone
+clear -> fb, BG.
+strokeRect -> fb, W, H, 1, 1, 6, 4, FG.
+log -> fb[(1 * 16) + 1]::v == FG.
+log -> fb[(1 * 16) + 6]::v == FG.
+log -> fb[(4 * 16) + 1]::v == FG.
+log -> fb[(4 * 16) + 6]::v == FG.
+log -> fb[(2 * 16) + 3]::v == BG.
+
+// a gradient reaches its endpoints exactly on the first and last row
+def TOP <- opaque -> 0, 0, 0.
+def BOT <- opaque -> 100, 200, 40.
+
+log -> gradient -> fb, W, H, TOP, BOT.
+log -> fb[0]::v == TOP.
+log -> fb[(7 * 16)]::v == BOT.
+log -> redOf -> fb[(7 * 16) + 9]::v.
+log -> greenOf -> fb[(7 * 16) + 9]::v.
+
+// a crosshair marks its own centre
+clear -> fb, BG.
+crosshair -> fb, W, H, 8, 4, 2, FG.
+log -> fb[(4 * 16) + 8]::v == FG.
+log -> fb[(4 * 16) + 6]::v == FG.
+log -> fb[(2 * 16) + 8]::v == FG.
+log -> fb[(2 * 16) + 6]::v == BG.
+
+// ---- unpacking for output ----
+
+clear -> fb, opaque -> 10, 20, 30.
+
+def rgb <- Byte[0].
+grow -> rgb, W * H * 3.
+
+log -> toRGB -> fb, rgb, W * H.
+log -> rgb[0]::v.
+log -> rgb[1]::v.
+log -> rgb[2]::v.
+log -> rgb[(127 * 3)]::v.
+log -> rgb[(127 * 3) + 2]::v.
+
+// which is exactly what a binary PPM wants
+write -> "/tmp/dis_canvas_test.ppm", "P6\n16 8\n255\n", rgb.
+log -> "wrote".

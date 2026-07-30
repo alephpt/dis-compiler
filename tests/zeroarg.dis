@@ -1,0 +1,74 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// a call with no arguments reads the same wherever an expression is legal, not
+// only immediately before the '.' that ends a statement
+
+op seven <- : $ ^(7)
+op twice <- a : $ ^(a * 2)
+op sum <- a, b : $ ^(a + b)
+
+def ready <- true.
+op flag <- : $ ^(ready)
+
+// the statement-end position that always worked
+log -> seven->.
+
+// grouped, and nested in a grouping
+log -> (seven->) + 1.
+log -> ((seven->)).
+
+// as the condition of a when, an or, and a while
+when, flag->:
+    log -> "when".
+
+when, false:
+    log -> "no".
+or, flag->:
+    log -> "or".
+
+def spins <- 0.
+while, spins < (seven->) - 5: $
+    log -> spins.
+    spins <- spins + 1.
+^
+
+// as an argument, alone and beside other arguments
+log -> twice -> seven->.
+log -> sum -> seven->, 3.
+log -> sum -> 3, seven->.
+log -> twice -> (seven->).
+
+// as an operand on either side of an operator
+log -> (seven->) * (seven->).
+log -> 1 + (seven->) + 1.
+log -> (seven->) % 4.
+log -> 0 - (seven->).
+
+// in the bounds of an as loop
+as, def i <- 0.(++) < (seven->) - 5:
+    log -> i.
+
+// as an index and as a returned value
+form Cell <- $ v <- u8. ^
+def cells <- Cell[8].
+
+cells[seven->]::v <- 42.
+log -> cells[seven->]::v.
+
+op passthrough <- : $
+    return seven->.
+^
+
+log -> passthrough->.
+
+// through several layers of zero argument calls
+op relay <- : $ ^(passthrough->)
+log -> relay->.
+
+// beside a native of no arguments
+def t <- clock->.
+log -> t > 0.
+
+// and as a value handed to write
+write -> "/tmp/dis_zeroarg.bin", "seven".
+log -> "done".

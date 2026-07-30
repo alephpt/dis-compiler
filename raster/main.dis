@@ -1,0 +1,243 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// P0 - the loop skeleton at 4K.
+//
+//     sh compile.sh && ./dis raster/main.dis
+//
+// Opens a window, clears and redraws it every frame, tracks the pointer, and
+// reports its frame rate once a second. It also times each stage of the frame
+// separately, because those numbers are what decide how much room the rest of
+// the renderer has to work in.
+//
+// Set BATCH to true to render a handful of frames to /tmp as binary PPMs
+// instead of opening a window. That path needs no display at all, which is how
+// this file stays runnable on a machine with no sdl.
+
+include -> "math.dis".
+include -> "gfx.dis".
+
+
+// ---------------------------------------------------------------- setup ----
+
+// 4K is the target. If sdl refuses the window on your machine, drop these to
+// 1920 by 1080 - nothing else in the file cares what size the surface is.
+def WIDE <- 3840.
+def HIGH <- 2160.
+
+// the batch path renders at a size a per pixel unpack can afford, since a PPM
+// has to be built one channel at a time
+def BATCH <- false.
+def BATCHWIDE <- 480.
+def BATCHHIGH <- 270.
+def BATCHFRAMES <- 4.
+
+// give up on its own so the window loop can be run unattended
+def LIFETIME <- 10000.
+
+def SKY <- opaque -> 18, 22, 34.
+def DEEP <- opaque -> 6, 7, 12.
+def INK <- opaque -> 240, 200, 80.
+def MARK <- opaque -> 255, 70, 70.
+
+
+// ------------------------------------------------------------ the frame ----
+
+// everything the canvas draws, once. no window calls in here, so the batch path
+// and the window path render exactly the same thing
+op drawFrame <- fb, w, h, t, mx, my : $
+    gradient -> fb, w, h, SKY, DEEP.
+
+    // a bar sweeping across, its width a fixed share of the surface
+    def span <- floor -> w / 8.
+    def x <- floor -> (t / 4) % w.
+
+    fillRect -> fb, w, h, x, 0, x + span, h - 1, INK.
+
+    // and the pointer, so the input path is exercised every frame
+    def arm <- floor -> h / 24.
+
+    crosshair -> fb, w, h, mx, my, arm, MARK.
+
+    return 0.
+^
+
+
+// ------------------------------------------------------------ the batch ----
+
+// renders BATCHFRAMES frames to /tmp and reports what each stage cost. This is
+// the path a machine with no display takes
+op runBatch <- : $
+    def w <- BATCHWIDE.
+    def h <- BATCHHIGH.
+    def count <- w * h.
+
+    def fb <- Px[0].
+    grow -> fb, count.
+
+    def rgb <- Byte[0].
+    grow -> rgb, count * 3.
+
+    log -> "batch mode".
+    log -> w.
+    log -> h.
+
+    def drawMs <- 0.
+    def packMs <- 0.
+
+    as, def frame <- 0.(++) < BATCHFRAMES: $
+        def t0 <- clock ->.
+
+        drawFrame -> fb, w, h, frame * 250, (floor -> w / 2), (floor -> h / 2).
+
+        def t1 <- clock ->.
+
+        toRGB -> fb, rgb, count.
+
+        def t2 <- clock ->.
+
+        drawMs <- drawMs + (t1 - t0).
+        packMs <- packMs + (t2 - t1).
+
+        write -> "/tmp/dis_canvas.ppm", "P6\n480 270\n255\n", rgb.
+    ^
+
+    log -> "ms per frame drawing".
+    log -> drawMs / BATCHFRAMES.
+    log -> "ms per frame packing to rgb".
+    log -> packMs / BATCHFRAMES.
+    log -> "wrote /tmp/dis_canvas.ppm".
+
+    return 0.
+^
+
+
+// ----------------------------------------------------------- the window ----
+
+op runWindow <- : $
+    def w <- WIDE.
+    def h <- HIGH.
+    def count <- w * h.
+
+    def fb <- Px[0].
+    grow -> fb, count.
+
+    display -> w, h, "dis - canvas P0".
+
+    log -> "surface".
+    log -> count.
+
+    def start <- clock ->.
+    def mark <- start.
+    def frames <- 0.
+    def sinceMark <- 0.
+
+    // each stage is timed on its own, accumulated over a whole second
+    def drawMs <- 0.
+    def blitMs <- 0.
+    def showMs <- 0.
+
+    def running <- true.
+
+    while, running: $
+        def t0 <- clock ->.
+
+        pump ->.
+
+        def closing <- quitting ->.
+        def escape <- pressed -> "Escape".
+
+        when, closing:
+            running <- false.
+
+        when, escape:
+            running <- false.
+
+        def mx <- mousex ->.
+        def my <- mousey ->.
+        def elapsed <- t0 - start.
+
+        drawFrame -> fb, w, h, elapsed, mx, my.
+
+        def t1 <- clock ->.
+
+        blit -> fb, w, h.
+
+        def t2 <- clock ->.
+
+        present ->.
+
+        def t3 <- clock ->.
+
+        drawMs <- drawMs + (t1 - t0).
+        blitMs <- blitMs + (t2 - t1).
+        showMs <- showMs + (t3 - t2).
+
+        frames <- frames + 1.
+        sinceMark <- sinceMark + 1.
+
+        // once a second, report the second that just went by
+        def now <- clock ->.
+        def window <- now - mark.
+
+        when, window >= 1000: $
+            log -> "fps".
+            log -> floor -> (sinceMark * 1000) / window.
+            log -> "  ms draw".
+            log -> drawMs / sinceMark.
+            log -> "  ms blit".
+            log -> blitMs / sinceMark.
+            log -> "  ms present".
+            log -> showMs / sinceMark.
+
+            mark <- now.
+            sinceMark <- 0.
+            drawMs <- 0.
+            blitMs <- 0.
+            showMs <- 0.
+        ^
+
+        when, elapsed > LIFETIME:
+            running <- false.
+    ^
+
+    def ended <- clock ->.
+
+    shut ->.
+
+    log -> "total frames".
+    log -> frames.
+    log -> "over ms".
+    log -> ended - start.
+
+    return 0.
+^
+
+
+// ------------------------------------------------------------------ run ----
+
+// how much work the vm gets through in a millisecond, which is the budget every
+// later pass has to fit inside
+op measureBudget <- : $
+    def spins <- 200000.
+    def t0 <- clock ->.
+    def acc <- 0.
+
+    as, def i <- 0.(++) < spins:
+        acc <- acc + (i % 7).
+
+    def t1 <- clock ->.
+    def ms <- t1 - t0.
+
+    log -> "vm loop iterations per ms".
+    log -> floor -> spins / ms.
+    log -> "  (each iteration is one add, one modulo, one compare, one step)".
+
+    return acc.
+^
+
+measureBudget ->.
+
+when, BATCH:
+    runBatch ->.
+else:
+    runWindow ->.

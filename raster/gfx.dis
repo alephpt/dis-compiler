@@ -1,0 +1,116 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// Drawing onto a packed u32 surface. Every pixel that reaches the surface goes
+// through the C span filler - dis decides *what* to draw, never writes pixels
+// one at a time. Needs math.dis included first.
+//
+// No window anywhere in this file, so a test can exercise all of it headless.
+
+
+// a surface is a buffer of these, w * h of them, row major
+form Px <- $
+    v <- u32.
+^
+
+// raw bytes, for anything on its way out to a file
+form Byte <- $
+    v <- u8.
+^
+
+
+// an axis aligned block, clipped to the surface. the ends are inclusive
+op fillRect <- fb, w, h, x0, y0, x1, y1, colour : $
+    def lox <- min -> x0, x1.
+    def hix <- max -> x0, x1.
+    def loy <- clampi -> (min -> y0, y1), 0, h - 1.
+    def hiy <- clampi -> (max -> y0, y1), 0, h - 1.
+
+    when, (max -> x0, x1) < 0:
+        return 0.
+
+    when, (min -> x0, x1) > w - 1:
+        return 0.
+
+    def painted <- 0.
+
+    as, def y <- loy.(++) <= hiy:
+        painted <- painted + (hspan -> fb, w, y, lox, hix, colour).
+
+    return painted.
+^
+
+
+// a hollow box one pixel thick
+op strokeRect <- fb, w, h, x0, y0, x1, y1, colour : $
+    def lox <- min -> x0, x1.
+    def hix <- max -> x0, x1.
+    def loy <- min -> y0, y1.
+    def hiy <- max -> y0, y1.
+
+    def painted <- 0.
+
+    painted <- painted + (hspan -> fb, w, loy, lox, hix, colour).
+    painted <- painted + (hspan -> fb, w, hiy, lox, hix, colour).
+
+    as, def y <- loy + 1.(++) < hiy: $
+        painted <- painted + (hspan -> fb, w, y, lox, lox, colour).
+        painted <- painted + (hspan -> fb, w, y, hix, hix, colour).
+    ^
+
+    return painted.
+^
+
+
+// a vertical wash between two colours, one span per row
+op gradient <- fb, w, h, top, bottom : $
+    def tr <- redOf -> top.
+    def tg <- greenOf -> top.
+    def tb <- blueOf -> top.
+    def br <- redOf -> bottom.
+    def bg <- greenOf -> bottom.
+    def bb <- blueOf -> bottom.
+
+    as, def y <- 0.(++) < h: $
+        def t <- y / (h - 1).
+        def r <- floor -> (lerp -> tr, br, t).
+        def g <- floor -> (lerp -> tg, bg, t).
+        def b <- floor -> (lerp -> tb, bb, t).
+        def c <- opaque -> r, g, b.
+
+        hspan -> fb, w, y, 0, w - 1, c.
+    ^
+
+    return h.
+^
+
+
+// a crosshair, which is the cheapest way to see that the pointer is tracked
+op crosshair <- fb, w, h, cx, cy, arm, colour : $
+    def painted <- 0.
+
+    painted <- painted + (hspan -> fb, w, cy, cx - arm, cx + arm, colour).
+
+    as, def y <- cy - arm.(++) <= cy + arm: $
+        when, y >= 0:
+            painted <- painted + (hspan -> fb, w, y, cx, cx, colour).
+    ^
+
+    return painted.
+^
+
+
+// unpack a surface into three byte pixels so it can be written as a binary PPM.
+// this is a per pixel loop in dis and is only ever used for batch output, never
+// on the way to a window
+op toRGB <- src, dst, count : $
+    as, def i <- 0.(++) < count: $
+        def c <- src[i]::v.
+        def base <- i * 3.
+
+        dst[base]::v <- c % 256.
+        dst[base + 1]::v <- (floor -> c / 256) % 256.
+        dst[base + 2]::v <- (floor -> c / 65536) % 256.
+    ^
+
+    return count.
+^

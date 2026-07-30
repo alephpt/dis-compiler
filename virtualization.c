@@ -470,6 +470,13 @@ static bool nativeClear (int args, Value* argv, Value* result) {
 
     uint8_t* bytes = (uint8_t*)&rgba;
 
+    // an empty surface owns no allocation at all, and memset will not take a
+    // null pointer even for a length of zero
+    if (fb->count == 0) {
+        *result = NUMERAL_VALUE(0);
+        return true;
+    }
+
     // when all four bytes agree the whole surface is one memset
     if (bytes[0] == bytes[1] && bytes[1] == bytes[2] && bytes[2] == bytes[3]) {
         memset(fb->bytes, bytes[0], (size_t)fb->count * 4);

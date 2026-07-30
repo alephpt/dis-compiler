@@ -1385,17 +1385,25 @@ static void binary (bool assignable) {
     return;
 }
 
+// a call takes arguments only if something that can begin an expression follows
+// it. anything else - ')', ':', ',', '.', an operator, the end of the file -
+// closes the argument list before it opens, so 'f ->' reads as a call of no
+// arguments wherever an expression is legal rather than only before a '.'
 static uint8_t arguments() {
     uint8_t args = 0;
-    if (!check(T_PERIOD)) {
-        do { 
-            expression();
-            if (args >= 255) {
-                prevErr("255 Argument Limit Exceeded.");
-            }
-            args++; 
-        } while (match(T_COMMA));
-    }
+
+    if (getRule(parser.current.type)->prefix == NULL) { return 0; }
+
+    do {
+        expression();
+
+        if (args >= 255) {
+            prevErr("255 Argument Limit Exceeded.");
+        }
+
+        args++;
+    } while (match(T_COMMA));
+
     return args;
 }
 

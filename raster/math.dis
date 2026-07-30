@@ -1,0 +1,67 @@
+// Written by Richard Christopher, Copyright 2026 Richard Christopher
+
+// Small numeric helpers shared by everything in the canvas. No window, no
+// buffers - this file is pure arithmetic and is safe to include from a test.
+
+
+// sdl lays RGBA32 out as r, g, b, a in memory, so on a little endian machine
+// the alpha ends up in the top byte of the word
+op rgba <- r, g, b, a : $
+    return (a * 16777216) + (b * 65536) + (g * 256) + r.
+^
+
+op opaque <- r, g, b : $
+    return 4278190080 + (b * 65536) + (g * 256) + r.
+^
+
+// the three channels back out of a packed word
+op redOf <- c : $
+    return c % 256.
+^
+
+op greenOf <- c : $
+    def shifted <- floor -> c / 256.
+    return shifted % 256.
+^
+
+op blueOf <- c : $
+    def shifted <- floor -> c / 65536.
+    return shifted % 256.
+^
+
+op clamp <- v, lo, hi : $
+    return min -> (max -> v, lo), hi.
+^
+
+// a whole number pinned into a half open range, which is what pixel work wants
+op clampi <- v, lo, hi : $
+    def whole <- floor -> v.
+    return min -> (max -> whole, lo), hi.
+^
+
+op lerp <- a, b, t : $
+    return a + ((b - a) * t).
+^
+
+// how far along a is between lo and hi, pinned to the ends
+op ramp <- v, lo, hi : $
+    when, hi <= lo:
+        return 0.
+
+    def t <- (v - lo) / (hi - lo).
+    return min -> (max -> t, 0), 1.
+^
+
+op absi <- v : $
+    return abs -> v.
+^
+
+op sign <- v : $
+    when, v > 0:
+        return 1.
+
+    when, v < 0:
+        return 0 - 1.
+
+    return 0.
+^
